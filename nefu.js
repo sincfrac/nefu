@@ -7,18 +7,91 @@ This software is released under the MIT License.
 http://opensource.org/licenses/mit-license.php
 */
 
+
+
+
 function nefuScene() {
 	this.blocks = [];
-	this.elements = [];
+	this.visibleElements = [];
+	this.controls = [];
 	this.onstarts = [];
 	this.msggroups = [];
 	this.audio = [];
+	this.isPlayingMessage;
 }
+nefuScene.prototype = {
+	show: function() {
+		for (var i=0; i<this.blocks.length; i++) {
+			var blk = this.blocks[i];
+			blk.css('visibility', 'visible');
+
+			blk.find('.visible').addClass('nf-visible');
+
+			blk.find('[data-visible-delay]').each(function() {
+				var elm = $(this);
+				var delay = elm.data('visible-delay');
+				if (delay == 0) {
+					elm.addClass('nf-visible');
+				}
+				else {
+					elm.removeClass('nf-visible');
+					(function() {
+						var e = elm;
+						setTimeout(function() {
+							e.addClass('nf-visible');
+						}, delay);
+					})();
+				}
+			});
+		}
+
+		for (var i=0; i<this.visibleElements.length; i++) {
+			this.visibleElements[i].show();
+		}
+
+		for (var i=0; i<this.onstarts.length; i++) {
+			eval(this.onstarts[i]);
+		}
+	},
+
+	hide: function(nextScene) {
+		for (var i=0; i<this.blocks.length; i++) {
+			var elm = this.blocks[i];
+			if (nextScene.blocks.indexOf(elm) < 0) {
+				elm.css('visibility', 'hidden');
+				elm.find('.nf-visible').removeClass('nf-visible');
+			}
+		}
+		for (var i=0; i<this.visibleElements.length; i++) {
+			var elm = this.visibleElements[i];
+			if (nextScene.visibleElements.indexOf(elm) < 0) {
+				elm.hide();
+			}
+		}
+	},
+
+	playAudio: function() {
+		for (var i=0; i<this.audio.length; i++) {
+			var audio = this.audio[i];
+			if (audio.delay == 0) {
+				audio.element.play();
+			}
+			else {
+				setTimeout(function(a) {
+					a.play();
+				}, audio.delay, audio);
+			}
+		}
+	}
+};
+
+
+
+
 
 function nefuView(wrapperElement, config) {
 	// Initialize members
 	this.scenes = [];
-	this.elements = [];
 	this.flags = [];
 
 	var view = this;
@@ -87,7 +160,9 @@ function nefuView(wrapperElement, config) {
 			   .css('top','')
 			   .css('bottom','');
 
-			view.elements.push(elm);
+			for (var i=0; i<snames.length; i++) {
+				view.scenes[snames[i]].controls.push(elm);
+			}
 		});
 
 		// Register messages
@@ -131,7 +206,7 @@ function nefuView(wrapperElement, config) {
 		var self = $(this);
 		var snames = self.data('visible-scenes').split(' ');
 		for (var i=0; i<snames.length; i++) {
-			view.scenes[snames[i]].elements.push(self);
+			view.scenes[snames[i]].visibleElements.push(self);
 		}
 		self.hide();
 	});
@@ -269,6 +344,9 @@ nefuView.prototype = {
 	},
 
 	resize: function(wWidth, wHeight) {
+		this.curWidth = wWidth;
+		this.curHeight = wHeight;
+
 		var r = Math.min(1, Math.max(this.minScale, Math.min(wWidth/this.minWidth, wHeight/this.minHeight)));
 		this.curScale = r;
 
@@ -298,38 +376,40 @@ nefuView.prototype = {
 		            .css('left', -eLeft)
 		            .css('top',  -eTop);
 
-		for (var i=0; i<this.elements.length; i++) {
-			var elm = this.elements[i];
-			var orgx = elm.data('origin-x');
-			var orgy = elm.data('origin-y');
+		if (this.curScene) {
+			for (var i=0; i<this.curScene.controls.length; i++) {
+				var elm = this.curScene.controls[i];
+				var orgx = elm.data('origin-x');
+				var orgy = elm.data('origin-y');
 
-			var eWidth  = elm.outerWidth();
-			var eHeight = elm.outerHeight();
+				var eWidth  = elm.outerWidth();
+				var eHeight = elm.outerHeight();
 
-			var x;
-			if (orgx == 'left') {
-				x = 0;
-			}
-			else if (orgx == 'right') {
-				x = eWidth;
-			}
-			else {
-				x = eWidth / 2;
-			}
+				var x;
+				if (orgx == 'left') {
+					x = 0;
+				}
+				else if (orgx == 'right') {
+					x = eWidth;
+				}
+				else {
+					x = eWidth / 2;
+				}
 
-			var y;
-			if (orgy == 'top') {
-				y = 0;
-			}
-			else if (orgy == 'bottom') {
-				y = eHeight;
-			}
-			else {
-				y = eHeight / 2;
-			}
+				var y;
+				if (orgy == 'top') {
+					y = 0;
+				}
+				else if (orgy == 'bottom') {
+					y = eHeight;
+				}
+				else {
+					y = eHeight / 2;
+				}
 
-			elm.css('left', -eLeft + elm.data('pos-x')*rWidth  - x)
-			   .css('top',  -eTop  + elm.data('pos-y')*rHeight - y);
+				elm.css('left', -eLeft + elm.data('pos-x')*rWidth  - x)
+				   .css('top',  -eTop  + elm.data('pos-y')*rHeight - y);
+			}
 		}
 	},
 
@@ -362,54 +442,16 @@ nefuView.prototype = {
 			return;
 		}
 
-
-		this.curSceneName = sceneName;
 		var nextScene = this.scenes[sceneName];
 
+		this.curSceneName = sceneName;
+		this.curScene = nextScene;
+
 		for (var sname in this.scenes) {
-			for (var i=0; i<this.scenes[sname].blocks.length; i++) {
-				var selm = this.scenes[sname].blocks[i];
-				if (nextScene.blocks.indexOf(selm) < 0) {
-					selm.css('visibility', 'hidden');
-					selm.find('.nf-visible').removeClass('nf-visible');
-				}
-			}
-			for (var i=0; i<this.scenes[sname].elements.length; i++) {
-				this.scenes[sname].elements[i].hide();
-			}
+			this.scenes[sname].hide(nextScene);
 		}
 		
-		for (var i=0; i<nextScene.blocks.length; i++) {
-			var selm = nextScene.blocks[i];
-			selm.css('visibility', 'visible');
-
-			selm.find('.visible').addClass('nf-visible');
-
-			selm.find('[data-visible-delay]').each(function() {
-				var elm = $(this);
-				var delay = elm.data('visible-delay');
-				if (delay == 0) {
-					elm.addClass('nf-visible');
-				}
-				else {
-					elm.removeClass('nf-visible');
-					(function() {
-						var e = elm;
-						setTimeout(function() {
-							e.addClass('nf-visible');
-						}, delay);
-					})();
-				}
-			});
-		}
-
-		for (var i=0; i<nextScene.elements.length; i++) {
-			nextScene.elements[i].show();
-		}
-
-		for (var i=0; i<nextScene.onstarts.length; i++) {
-			eval(nextScene.onstarts[i]);
-		}
+		nextScene.show();
 
 		for (var grp in nextScene.msggroups) {
 			var t = 200 + 500 * Math.random();
@@ -418,22 +460,10 @@ nefuView.prototype = {
 			}, t, this, sceneName, grp);
 		}
 
-		for (var i=0; i<nextScene.audio.length; i++) {
-			var audio = nextScene.audio[i];
-			if (audio.delay == 0) {
-				audio.element.play();
-			}
-			else {
-				(function() {
-					var a = audio;
-					setTimeout(function() {
-						a.play();
-					}, a.delay);
-				})();
-			}
-		}
-
 		this.updateFlagVisible();
+		this.resize(this.curWidth, this.curHeight);
+
+		nextScene.playAudio();
 	},
 
 	showNextMessage: function(scene, grp, idx) {
