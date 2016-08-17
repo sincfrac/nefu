@@ -110,8 +110,8 @@ function nefuView(wrapperElement, config) {
 	this.wrapper = wrapper;
 
 	// Get view parameters
-	this.maxWidth  = wrapper.data('max-width');
-	this.maxHeight = wrapper.data('max-height');
+	this.maxWidth  = wrapper.width();
+	this.maxHeight = wrapper.height();
 	this.minWidth  = wrapper.data('min-width');
 	this.minHeight = wrapper.data('min-height');
 	this.minScale  = wrapper.data('min-scale');
