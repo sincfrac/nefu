@@ -842,6 +842,28 @@ a {
 	text-decoration: none;
 }
 
+.nf-window .menu > li.frame {
+	text-shadow: unset;
+	cursor: auto;
+	background-color: transparent;
+	background-image: none;
+	position: relative;
+
+	border: 1px solid rgba(255,255,255,0.2);
+	box-shadow: 0 0 0 1px rgba(0,0,0,0.7);
+	margin: 0;
+	padding: 0;
+	border-radius: 2px;
+	color: rgba(255,255,255,0.8);
+	text-align: left;
+}
+
+
+
+
+
+
+
 .nf-window p {
 	line-height: 1.6em;
 	padding: 0 2px;
