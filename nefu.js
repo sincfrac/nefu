@@ -8,6 +8,17 @@ http://opensource.org/licenses/mit-license.php
 */
 
 
+(function( $ ) {
+  $.fn.toggleVisibility = function() {
+  	var v = this.css('visibility');
+  	if (v == 'visible') {
+  		this.css('visibility', 'hidden');
+  	}
+  	else if (v == 'hidden') {
+  		this.css('visibility', 'visible');
+  	}
+  };
+})( jQuery );
 
 
 function nefuScene() {

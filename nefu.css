@@ -327,6 +327,14 @@ body {
 	background-color: rgba(255,255,255,0.2);
 }
 
+.nf-status.blink .name {
+	animation: status-blink-kf 1.5s ease-in-out infinite alternate;
+}
+@keyframes status-blink-kf {
+	  0% { border-color: rgba(255,255,255,0.2); }
+	100% { border-color: rgba(255,255,255,0.8); }
+}
+
 .nf-status .name .title {
 	font-weight: normal;
 	font-size: 9pt;
@@ -503,14 +511,14 @@ body {
 }
 
 .nf-window .character-thumb {
-	width: 56px;
-	height: 56px;
+	width: 60px;
+	height: 60px;
 	box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
 	border: 1px solid rgba(0,0,0,0.7);
 	border-radius: 4px;
 	background-repeat: no-repeat;
 	background-position: center center;
-	background-size: 56px 56px;
+	background-size: 60px 60px;
 	margin: 12px;
 }
 
@@ -536,6 +544,21 @@ body {
 	background-color: rgba(255,255,255,0.1);
 	padding: 4px 8px;
 	margin-right: 4px;
+}
+.character-info dd.status {
+	margin-top: 6px;
+	border-radius: 4px;
+	font-weight:bold;
+	display: inline-block;
+	padding: 0 4px;
+}
+.character-info dd.status.deadly {
+	color: rgba(240,140,140,0.9);
+	border: 1px solid rgba(240,140,140,0.9);
+}
+.character-info dd.status.dead {
+	color: rgba(240,50,50,1.0);
+	border: 1px solid rgba(240,50,50,1.0);
 }
 
 .nf-window .frame {
@@ -672,15 +695,10 @@ body {
 	border-radius: 4px 0 0 4px;
 }
 
-.nf-window .menu {
-	list-style: none;
+.nf-window .button {
 	font-size: 10pt;
-	color: rgba(255,255,255,0.9);
 	font-weight: normal;
-	margin: 8px;
-}
-
-.nf-window .menu li {
+	text-align: center;
 	text-shadow: 0 0 3px black;
 	padding: 6px 10px;
 	border-radius: 4px;
@@ -698,8 +716,9 @@ body {
     		to bottom,
             rgba(255,255,255,0.2) 0%,
             rgba(255,255,255,0.1) 100%);
+	display: inline-block;
 }
-.nf-window .menu li:hover {
+.nf-window .button:hover {
 	background-color: rgba(150,200,255,0.4);
 	background: -webkit-linear-gradient(
             top,
@@ -710,7 +729,67 @@ body {
             rgba(150,200,255,0.5) 0%,
             rgba(150,200,255,0.2) 100%);
 }
-.nf-window .menu.horizontal li {
+
+.nf-window .menu {
+	list-style: none;
+	font-size: 10pt;
+	color: rgba(255,255,255,0.9);
+	font-weight: normal;
+	margin: 8px;
+	position: relative;
+}
+
+.nf-window .menu > li {
+	text-shadow: 0 0 3px black;
+	padding: 6px 10px;
+	border-radius: 4px;
+	border-top:  1px solid rgba(255,255,255,0.3);
+	border-left: 1px solid rgba(255,255,255,0.3);
+	box-shadow: 0 0 0 1px rgba(0,0,0,0.7);
+	margin: 8px 0;
+	cursor: pointer;
+	background-color: rgba(255,255,255,0.2);
+	background: -webkit-linear-gradient(
+    		top,
+            rgba(255,255,255,0.2) 0%,
+            rgba(255,255,255,0.1) 100%);
+	background: linear-gradient(
+    		to bottom,
+            rgba(255,255,255,0.2) 0%,
+            rgba(255,255,255,0.1) 100%);
+	position: relative;
+}
+.nf-window .menu > li:hover {
+	background-color: rgba(150,200,255,0.4);
+	background: -webkit-linear-gradient(
+            top,
+            rgba(150,200,255,0.5) 0%,
+            rgba(150,200,255,0.2) 100%);
+	background: linear-gradient(
+            to bottom,
+            rgba(150,200,255,0.5) 0%,
+            rgba(150,200,255,0.2) 100%);
+}
+.nf-window .menu > li > .sub {
+	position: absolute;
+	left: 100%;
+	top: 0;
+	visibility: hidden;
+}
+.nf-window .menu > li.arrow:after {
+	content: '▶︎';
+	font-size: 8pt;
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	margin-top: -10px;
+	height: 20px;
+	line-height: 20px;
+}
+.nf-window.nf-visible .menu > li:hover > .sub {
+	visibility: visible;
+}
+.nf-window .menu.horizontal > li {
 	display: inline-block;
 	margin: 0 4px 0 0;
 }
@@ -721,7 +800,7 @@ body {
 	text-align: center;
 }
 
-.nf-window .menu li a {
+.nf-window .menu > li > a {
 	color: rgba(255,255,255,0.9);
 	text-decoration: none;
 }
@@ -799,12 +878,12 @@ body {
 }
 
 .nf-window ul.item-list {
+}
+.nf-window ul.item-list > li {
 	list-style: none;
 	font-size: 8pt;
 	min-height: 40px;
-}
-.nf-window ul.item-list > li {
-	padding: 8px 12px;
+	padding: 4px 8px;
 	border-bottom: 1px solid rgba(255,255,255,0.2);
 	position: relative;
 }
@@ -861,9 +940,9 @@ body {
 	box-shadow: unset;
 	width: 100%;
 }
-.nf-window ul.item-list > li .menu {
+.nf-window ul.item-list > li .button {
 	position: absolute;
-	right: 0;
+	right: 8px;
 	top: 0;
 }
 
