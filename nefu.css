@@ -42,6 +42,11 @@ body {
 	text-align: left;
 }
 
+a {
+	text-decoration: inherit;
+	color: inherit;
+}
+
 .nf-wrapper {
 	background-repeat: no-repeat;
 	margin: auto;
@@ -62,6 +67,12 @@ body {
 .nf-scene {
 	position: absolute;
 	visibility: hidden;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.nf-scene > * {
+	pointer-events: auto;
 }
 
 .nf-image {
@@ -87,14 +98,40 @@ body {
 }
 
 .nf-logo {
-	margin-left: 40px;
+	left: 40px;
+	right: 40px;
 	white-space: nowrap;
 	background-image: url(http://sinc.xii.jp/blog/wp-content/uploads/2015/07/title_white.png);
 	background-repeat: no-repeat;
 	background-size: 150px 100px;
-	padding: 100px 0 0 50px;
-	font-size: 12pt;
 	color: rgba(255,255,255,0.6);
+}
+.nf-logo h1 {
+	margin: 100px 0 0 50px;
+	font-size: 12pt;
+	font-weight: normal;
+}
+.nf-logo ul.link {
+	position: absolute;
+	right: 0;
+	top: 20px;
+	list-style: none;
+	font-size: 12pt;
+}
+.nf-logo ul.link li {
+	display: inline-block;
+	margin-left: 12px;
+	transition: color 0.2s ease;
+}
+.nf-logo ul.link li:hover {
+	color: rgba(255,255,255,0.9);
+}
+.nf-logo ul.link li img {
+	vertical-align: middle;
+	opacity: 0.6;
+}
+.nf-logo ul.link li img:hover {
+	opacity: 0.9;
 }
 
 @media only screen and (-webkit-min-device-pixel-ratio: 1.5),
