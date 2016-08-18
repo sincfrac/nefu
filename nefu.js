@@ -34,7 +34,8 @@ nefuScene.prototype = {
 	show: function() {
 		for (var i=0; i<this.blocks.length; i++) {
 			var blk = this.blocks[i];
-			blk.css('visibility', 'visible');
+			blk.show();
+			//blk.css('visibility', 'visible');
 
 			blk.find('.visible').addClass('nf-visible');
 
@@ -67,10 +68,11 @@ nefuScene.prototype = {
 
 	hide: function(nextScene) {
 		for (var i=0; i<this.blocks.length; i++) {
-			var elm = this.blocks[i];
-			if (nextScene.blocks.indexOf(elm) < 0) {
-				elm.css('visibility', 'hidden');
-				elm.find('.nf-visible').removeClass('nf-visible');
+			var blk = this.blocks[i];
+			if (nextScene.blocks.indexOf(blk) < 0) {
+				//blk.css('visibility', 'hidden');
+				blk.hide();
+				blk.find('.nf-visible').removeClass('nf-visible');
 			}
 		}
 		for (var i=0; i<this.visibleElements.length; i++) {
@@ -210,6 +212,8 @@ function nefuView(wrapperElement, config) {
 				view.scenes[sname].onstarts.push(self.data('onscenestart'));
 			}
 		}
+
+		self.hide().css('visibility', 'visible');
 	});
 
 	// Initialize elements shown at specified scenes
@@ -430,25 +434,35 @@ nefuView.prototype = {
 				fadeDuration = 0;
 			}
 
+			var view = this;
+			var cover = this.cover;
+
 			if (fade == true) {
-				this.cover.css('background-color', 'black');
+				cover.css('background-color', 'black');
 			} else {
-				this.cover.css('background-color', fade);
+				cover.css('background-color', fade);
 			}
 
-			this.cover.addClass('nf-visible');
+			cover.on('animationend', function() {
+				setTimeout(function() {
+					cover.off('animationend');
+					view.changeScene(sceneName, false);
 
-			setTimeout(function(view) {
-				view.changeScene(sceneName, false);
-
-				setTimeout(function(view) {
-					view.cover.removeClass('nf-visible').addClass('nf-hide');
 					setTimeout(function() {
-						view.cover.removeClass('nf-hide');
-					}, 200);
-				}, fadeDuration, view);
+						cover.on('animationend', function() {
+							cover.off('animationend')
+							     .removeClass('nf-hide');
+						});
+						cover.removeClass('nf-visible')
+						     .addClass('nf-hide');
+					},
+					fadeDuration);
 
-			}, 100, this);
+				},
+				16); //wait 1 frame
+			});
+
+			cover.addClass('nf-visible');
 
 			return;
 		}
@@ -504,11 +518,14 @@ nefuView.prototype = {
 		(function() {
 			var m = msg;
 			setTimeout(function() {
-				m.removeClass('nf-visible').addClass('nf-hide');
-				setTimeout(function() {
-					m.removeClass('nf-hide');
-				}, 500);
-			}, duration);
+				m.on('animationend', function() {
+					m.off('animationend')
+					 .removeClass('nf-hide');
+				});
+				m.removeClass('nf-visible')
+				 .addClass('nf-hide');
+			}, 
+			duration);
 		})();
 
 		var nextIdx = idx + 1;
@@ -596,14 +613,19 @@ nefuView.prototype = {
 		msg.css('bottom', '40px');
 		this.wrapper.append(msg);
 
+		var duration = 5000;
+
 		(function() {
 			var m = msg;
 			setTimeout(function() {
-				m.removeClass('nf-visible').addClass('nf-hide');
-				setTimeout(function() {
-					m.remove();
-				}, 500);
-			}, 5000);
+				m.on('animationend', function() {
+					m.off('animationend')
+					 .removeClass('nf-hide');
+				});
+				m.removeClass('nf-visible')
+				 .addClass('nf-hide');
+			},
+			duration);
 		})();
 	}
 };
