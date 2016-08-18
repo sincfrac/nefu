@@ -18,6 +18,23 @@ http://opensource.org/licenses/mit-license.php
   		this.css('visibility', 'visible');
   	}
   };
+  $.fn.showControl = function() {
+	this.addClass('nf-visible');
+	var duration = this.data('visible-duration');
+	if (duration) {
+		setTimeout(function(e) {
+			e.removeClass('nf-visible');
+			
+			if (e.hasClass('nf-message')) {
+				e.addClass('nf-hide');
+				e.on('animationend', function() {
+					$(this).removeClass('nf-hide');
+				});
+			}
+			
+		}, duration, this);
+	}
+  };
 })( jQuery );
 
 
@@ -43,16 +60,13 @@ nefuScene.prototype = {
 				var elm = $(this);
 				var delay = elm.data('visible-delay');
 				if (delay == 0) {
-					elm.addClass('nf-visible');
+					elm.showControl();
 				}
 				else {
 					elm.removeClass('nf-visible');
-					(function() {
-						var e = elm;
-						setTimeout(function() {
-							e.addClass('nf-visible');
-						}, delay);
-					})();
+					setTimeout(function(e) {
+						e.showControl();
+					}, delay, elm);
 				}
 			});
 		}
@@ -491,6 +505,27 @@ nefuView.prototype = {
 		nextScene.playAudio();
 	},
 
+	showMessage: function(msg, defaultDuration) {
+		msg.addClass('nf-visible');
+
+		var duration = msg.data('duration');
+		if (!duration) {
+			duration = defaultDuration;
+		}
+
+		setTimeout(function(m) {
+			m.on('animationend', function() {
+				m.off('animationend')
+				 .removeClass('nf-hide');
+			});
+			m.removeClass('nf-visible')
+			 .addClass('nf-hide');
+		}, 
+		duration, msg);
+
+		return duration;
+	},
+
 	showNextMessage: function(scene, grp, idx) {
 		if (scene != this.curSceneName) return;
 		if (!(scene in this.scenes)) return;
@@ -510,23 +545,7 @@ nefuView.prototype = {
 		var duration = 3000;
 		var delay = 500 + 1000 * Math.random();
 
-		msg.addClass('nf-visible');
-		if (msg.data('duration')) {
-			duration = msg.data('duration');
-		}
-
-		(function() {
-			var m = msg;
-			setTimeout(function() {
-				m.on('animationend', function() {
-					m.off('animationend')
-					 .removeClass('nf-hide');
-				});
-				m.removeClass('nf-visible')
-				 .addClass('nf-hide');
-			}, 
-			duration);
-		})();
+		duration = this.showMessage(msg, duration);
 
 		var nextIdx = idx + 1;
 
@@ -572,12 +591,13 @@ nefuView.prototype = {
 	},
 
 	updateFlagVisible: function() {
+		var view = this;
 		var scene = this.scenes[this.curSceneName];
 		for (var i=0; i<scene.blocks.length; i++) {
 			scene.blocks[i].find('[data-visible-flags]').each(function() {
 				var self = $(this);
 				var flags = self.data('visible-flags').split(' ');
-				if (this.checkFlags(flags)) {
+				if (view.checkFlags(flags)) {
 					self.addClass('nf-visible');
 				}
 				else {
