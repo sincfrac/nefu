@@ -643,6 +643,15 @@ nefuView.prototype = {
 		return false;
 	},
 
+	checkAllFlags: function(flags) {
+		for (var i=0; i<flags.length; i++) {
+			if (!(flags[i] in this.flags)) {
+				return false;
+			}
+		}
+		return true;
+	},
+
 	updateFlagVisible: function() {
 		var view = this;
 		var scene = this.scenes[this.curSceneName];
@@ -650,11 +659,23 @@ nefuView.prototype = {
 			scene.blocks[i].find('[data-visible-flags]').each(function() {
 				var self = $(this);
 				var flags = self.data('visible-flags').split(' ');
-				if (view.checkFlags(flags)) {
+				if (view.checkAllFlags(flags)) {
 					self.addClass('nf-visible');
 				}
 				else {
 					self.removeClass('nf-visible');
+				}
+			});
+			scene.blocks[i].find('[data-hide-flags]').each(function() {
+				var self = $(this);
+				var flags = self.data('hide-flags').split(' ');
+				if (view.checkFlags(flags)) {
+					self.removeClass('nf-visible');
+				}
+				else {
+					if (self.hasClass('visible')) {
+						self.addClass('nf-visible');
+					}
 				}
 			});
 			var onflagchange = scene.blocks[i].data('onflagchange');
