@@ -143,6 +143,8 @@ function nefuView(wrapperElement, config) {
 	this.scenes = [];
 	this.flags = [];
 	this.audioEnable = true;
+	this.curWidth = 0;
+	this.curHeight = 0;
 
 	var view = this;
 	var wrapper = $(wrapperElement);
@@ -301,24 +303,24 @@ function nefuView(wrapperElement, config) {
 
 					var x;
 					if (orgx == 'left') {
-						x = nposX / mWidth;
+						x = (nposX + view.controlOffsetLeft + 0) / mWidth;
 					}
 					else if (orgx == 'right') {
-						x = (nposX + width) / mWidth;
+						x = (nposX + view.controlOffsetLeft + width) / mWidth;
 					}
 					else {
-						x = (nposX+width /2) / mWidth;
+						x = (nposX + view.controlOffsetLeft + width /2) / mWidth;
 					}
 
 					var y;
 					if (orgy == 'top') {
-						y = nposY / mHeight;
+						y = (nposY + view.controlOffsetTop + 0) / mHeight;
 					}
 					else if (orgy == 'bottom') {
-						y = (nposY + height) / mHeight;
+						y = (nposY + view.controlOffsetTop + height) / mHeight;
 					}
 					else {
-						y = (nposY + height/2) / mHeight;
+						y = (nposY + view.controlOffsetTop + height/2) / mHeight;
 					}
 
 					par.data('pos-x', x)
@@ -443,6 +445,9 @@ nefuView.prototype = {
 
 		var eLeft = Math.max(0, (rWidth  - vWidth ) / 2);
 		var eTop  = Math.max(0, (rHeight - vHeight) / 2);
+
+		this.controlOffsetLeft = eLeft;
+		this.controlOffsetTop  = eTop;
 
 		this.wrapper.find('.nf-image')
 		            .css('left', -eLeft)
