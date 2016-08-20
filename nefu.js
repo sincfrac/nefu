@@ -709,5 +709,15 @@ nefuView.prototype = {
 			},
 			duration);
 		})();
+	},
+
+	getUrlArgs: function() {
+		var args = [];
+		var pair = location.search.substring(1).split('&');
+		for(var i=0; pair[i]; i++) {
+		    var kv = pair[i].split('=');
+		    args[kv[0]]=kv[1];
+		}
+		return args;
 	}
 };
