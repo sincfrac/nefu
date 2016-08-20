@@ -17,6 +17,7 @@ http://opensource.org/licenses/mit-license.php
   	else if (v == 'hidden') {
   		this.css('visibility', 'visible');
   	}
+  	return this;
   };
   $.fn.showControl = function() {
 	this.addClass('nf-visible');
@@ -34,6 +35,17 @@ http://opensource.org/licenses/mit-license.php
 			
 		}, duration, this);
 	}
+	return this;
+  };
+  $.fn.visibility = function(val) {
+  	if (val == true) {
+  		this.css('visibility', 'visible');
+  	} else if (val == false) {
+  		this.css('visibility', 'hidden');
+  	} else {
+  		return this.css('visibility') == 'visible';
+  	}
+  	return this;
   };
 })( jQuery );
 
@@ -109,6 +121,16 @@ nefuScene.prototype = {
 				}, audio.delay, audio);
 			}
 		}
+	},
+
+	stopAudio: function() {
+		for (var i=0; i<this.audio.length; i++) {
+			var audio = this.audio[i];
+			if (!audio.element.ended) {
+				audio.element.pause();
+				audio.element.currentTime = 0;
+			}
+		}
 	}
 };
 
@@ -120,6 +142,7 @@ function nefuView(wrapperElement, config) {
 	// Initialize members
 	this.scenes = [];
 	this.flags = [];
+	this.audioEnable = true;
 
 	var view = this;
 	var wrapper = $(wrapperElement);
@@ -339,6 +362,11 @@ function nefuView(wrapperElement, config) {
 		if (config.preloads) {
 			var preloadNum = config.preloads.length;
 
+			function getExtension(filename) {
+				var ss = filename.split('.');
+				return ss[ss.length-1].toLowerCase();
+			}
+
 			function loadImageNext(arr, fProgress, fFinish, fError) {
 				if (arr.length == 0) {
 					if (config.preloadFinish) { config.preloadFinish(); }
@@ -348,16 +376,31 @@ function nefuView(wrapperElement, config) {
 					config.preloadProgress(1 - arr.length / preloadNum);
 				}
 				
-				var img = new Image();
-				img.onload = function() {
-					setTimeout(function() {
+				var src = arr.pop();
+				var ext = getExtension(src);
+
+				if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
+					var tmp = new Image();
+					tmp.onload = function() {
 						loadImageNext(arr);
-					}, 10);
-				};
-				img.onerror = function() {
-					if (config.preloadError) { config.preloadError(); }
-				};
-				img.src = arr.pop();
+					};
+					tmp.onerror = function() {
+						if (config.preloadError) { config.preloadError(); }
+					};
+					tmp.src = src;
+				}
+				else if (ext == 'mp3') {
+					var tmp = new Audio();
+					tmp.autoplay = false;
+					tmp.onloadeddata = function() {
+						loadImageNext(arr);
+					};
+					tmp.onerror = function() {
+						if (config.preloadError) { config.preloadError(); }
+					};
+					tmp.src = src;
+					tmp.load();
+				}
 			}
 
 			loadImageNext(config.preloads);
@@ -488,6 +531,9 @@ nefuView.prototype = {
 
 		for (var sname in this.scenes) {
 			this.scenes[sname].hide(nextScene);
+			if (this.audioEnable) {
+				this.scenes[sname].stopAudio();
+			}
 		}
 		
 		nextScene.show();
@@ -502,7 +548,9 @@ nefuView.prototype = {
 		this.updateFlagVisible();
 		this.resize(this.curWidth, this.curHeight);
 
-		nextScene.playAudio();
+		if (this.audioEnable) {
+			nextScene.playAudio();
+		}
 	},
 
 	showMessage: function(msg, defaultDuration) {
@@ -604,6 +652,10 @@ nefuView.prototype = {
 					self.removeClass('nf-visible');
 				}
 			});
+			var onflagchange = scene.blocks[i].data('onflagchange');
+			if (onflagchange) {
+				eval(onflagchange);
+			}
 		}
 	},
 
@@ -615,6 +667,16 @@ nefuView.prototype = {
 	hideWindow: function(wid) {
 		var wnd = $("#" + wid);
 		wnd.removeClass('nf-visible');
+	},
+
+	toggleWindow: function(wid) {
+		var wnd = $("#" + wid);
+		if (wnd.hasClass('nf-visible')) {
+			wnd.removeClass('nf-visible');
+		}
+		else {
+			wnd.addClass('nf-visible');
+		}
 	},
 
 	say: function(text) {

@@ -41,6 +41,7 @@ body {
 	user-select: none;
 	cursor: default;
 	text-align: left;
+	line-height: 1.4em;
 }
 
 a {
@@ -432,7 +433,7 @@ a {
 	color: transparent;
 	border: 1px solid rgba(255,255,255,0.05);
 	background-color: transparent;
-	text-shadow: unset;
+	text-shadow: none;
 }
 .nf-item.secret:hover {
 	color: rgba(255,255,255,0.3);
@@ -458,12 +459,13 @@ a {
 ---------------------------------------------------*/
 .nf-window {
 	position: absolute;
-	box-shadow: 0 0 8px 0 black;
+	box-shadow: 0 0 8px 0 black,
+	            0 0 0 1px rgba(0,0,0,0.7);
 	border-top: 1px solid rgba(255,255,255,0.3);
 	border-left: 1px solid rgba(255,255,255,0.3);
 	border-bottom: 1px solid rgba(255,255,255,0.1);
 	border-right: 1px solid rgba(255,255,255,0.1);
-	outline: 1px solid rgba(0,0,0,0.7);
+	/*outline: 1px solid rgba(0,0,0,0.7);*/
 	padding: 4px;
 	font-size: 10pt;
 	color: white;
@@ -483,7 +485,8 @@ a {
 	/* -webkit-backdrop-filter: blur(5px); */
 }
 .nf-window.light {
-	box-shadow: 0 0 12px 0 rgba(0,0,0,0.4);
+	box-shadow: 0 0 12px 0 rgba(0,0,0,0.4),
+	            0 0 0 1px rgba(0,0,0,0.7);
 	border-top: 1px solid rgba(255,255,255,0.1);
 	border-left: 1px solid rgba(255,255,255,0.1);
 	border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -540,21 +543,21 @@ a {
 }
 
 .nf-window .character-thumb {
-	width: 60px;
-	height: 60px;
+	width: 64px;
+	height: 64px;
 	box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
 	border: 1px solid rgba(0,0,0,0.7);
 	border-radius: 4px;
 	background-repeat: no-repeat;
 	background-position: center center;
-	background-size: 60px 60px;
+	background-size: 64px 64px;
 	margin: 12px;
 }
 
 .nf-window .character-info {
 	position: absolute;
 	top: 32px;
-	left: 90px;
+	left: 95px;
 }
 
 .character-info dd {
@@ -566,6 +569,11 @@ a {
 .character-info dd.name {
 	font-size: 11pt;
 	font-weight: bold;
+	min-height: 24px;
+}
+
+.character-info dd.description {
+	min-height: 24px;
 }
 
 .character-info dd .title {
@@ -575,17 +583,17 @@ a {
 	margin-right: 4px;
 }
 .character-info dd.status {
-	margin-top: 6px;
 	border-radius: 4px;
 	font-weight:bold;
 	display: inline-block;
 	padding: 0 4px;
+	min-height: 22px;
 }
 .character-info dd.status.deadly {
 	background-image: url(nefu-deadly.png);
 	background-size: 16px 16px;
 	background-repeat: no-repeat;
-	background-position: left middle;
+	background-position: left center;
 	padding-left: 20px;
 	color: rgba(240,140,140,0.9);
 }
@@ -593,7 +601,7 @@ a {
 	background-image: url(nefu-deadly.png);
 	background-size: 16px 16px;
 	background-repeat: no-repeat;
-	background-position: left middle;
+	background-position: left center;
 	padding-left: 20px;
 	color: rgba(240,50,50,1.0);
 }
@@ -609,7 +617,7 @@ a {
 }
 .nf-window .frame.no-border {
 	border: 1px solid transparent;
-	box-shadow: unset;
+	box-shadow: none;
 }
 .nf-window .frame.no-padding {
 	padding: 0;
@@ -629,24 +637,24 @@ a {
 	position: absolute;
 	left: 0;
 	right: 0;
-	width: 32px;
-	height: 32px;
+	width: 40px;
+	height: 40px;
 	border-radius: 4px;
 	border: 1px solid rgba(0,0,0,0.7);
 	box-shadow: 0 0 0 1px rgba(255,255,255,0.6);
-	background-size: 32px 32px;
+	background-size: 40px 40px;
 	text-shadow: 0 0 3px black;
 	white-space: nowrap;
 	color: white;
 }
 .item-header .name {
-	margin-left: 44px;
+	margin-left: 52px;
 	font-size: 10pt;
 	font-weight: bold;
 	top: 0;
 }
 .item-header .text {
-	margin-left: 44px;
+	margin-left: 52px;
 	font-size: 8pt;
 	color: rgba(255,255,255,0.6);
 	vertical-align: middle;
@@ -843,7 +851,7 @@ a {
 }
 
 .nf-window .menu > li.frame {
-	text-shadow: unset;
+	text-shadow: none;
 	cursor: auto;
 	background-color: transparent;
 	background-image: none;
@@ -966,8 +974,9 @@ a {
 	border-radius: 100px;
 	background-color: rgba(255,255,255,0.2);
 	font-size: 7pt;
-	padding: 2px 6px;
+	padding: 4px 6px;
 	font-weight: bold;
+	line-height: 1em;
 }
 .nf-window ul.item-list > li .detail {
 	position: absolute;
@@ -996,7 +1005,7 @@ a {
 	border-top: 1px solid rgba(255,255,255,0.2);
 	padding: 4px 0 0 0;
 	margin: 4px 0 0 0;
-	box-shadow: unset;
+	box-shadow: none;
 	width: 100%;
 }
 .nf-window ul.item-list > li .button {
