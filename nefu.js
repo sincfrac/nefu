@@ -392,7 +392,8 @@ function nefuView(wrapperElement, config) {
 					tmp.src = src;
 				}
 				else if (ext == 'mp3') {
-					var tmp = new Audio();
+					loadImageNext(arr);
+					/*var tmp = new Audio();
 					tmp.autoplay = false;
 					tmp.onloadeddata = function() {
 						loadImageNext(arr);
@@ -401,7 +402,7 @@ function nefuView(wrapperElement, config) {
 						if (config.preloadError) { config.preloadError(); }
 					};
 					tmp.src = src;
-					tmp.load();
+					tmp.load();*/
 				}
 			}
 
@@ -491,6 +492,14 @@ nefuView.prototype = {
 	},
 
 	changeScene: function(sceneName, fade, fadeDuration) {
+		var nextScene = this.scenes[sceneName];
+
+		if (this.audioEnable) {
+			if (nextScene.audio.length > 0) {
+				nextScene.audio[0].element.load();
+			}
+		}
+
 		if (fade) {
 			if (!fadeDuration) {
 				fadeDuration = 0;
@@ -529,8 +538,6 @@ nefuView.prototype = {
 			return;
 		}
 
-		var nextScene = this.scenes[sceneName];
-
 		this.curSceneName = sceneName;
 		this.curScene = nextScene;
 
@@ -554,7 +561,10 @@ nefuView.prototype = {
 		this.resize(this.curWidth, this.curHeight);
 
 		if (this.audioEnable) {
-			nextScene.playAudio();
+			//nextScene.playAudio();
+			if (nextScene.audio.length > 0) {
+				nextScene.audio[0].element.play();
+			}
 		}
 	},
 
