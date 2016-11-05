@@ -47,58 +47,279 @@ http://opensource.org/licenses/mit-license.php
   	}
   	return this;
   };
+
+  $.shuffle = function(arr) {
+		for (var n=arr.length-1; n>=0; n--) {
+			var i = Math.floor(Math.random() * n);
+			var tmp = arr[n];
+			arr[n] = arr[i];
+			arr[i] = tmp;
+		}
+		return arr;
+  };
 })( jQuery );
 
 
-function nefuScene() {
-	this.blocks = [];
-	this.visibleElements = [];
+
+
+
+
+
+function nefuLayer(view, obj) {
+	this.obj = obj;
+	this.view = view;
 	this.controls = [];
-	this.onstarts = [];
-	this.msggroups = [];
-	this.audio = [];
-	this.isPlayingMessage;
+	this.audios = [];
+	this.onStart = null;
+	this.onEnd = null;
+	this.visible = false;
+	this.audioLoaded = false;
+	var layer = this;
+
+	// Parse scene names
+	if (obj.data('scene')) {
+		this.sceneNames = obj.data('scene').split(' ');
+	} else {
+		this.sceneNames = [];
+	}
+
+	// Register movable controls
+	obj.children().each(function() {
+		var elm = $(this);
+		if (elm.hasClass('static')) return;
+
+		var orgx = elm.data('origin-x');
+		var orgy = elm.data('origin-y');
+		var pos = elm.position();
+		var width = elm.outerWidth(true);
+		var height = elm.outerHeight(true);
+
+		var x;
+		if (orgx == 'left') {
+			x = pos.left / view.maxWidth;
+		}
+		else if (orgx == 'right') {
+			x = (pos.left + width) / view.maxWidth;
+		}
+		else {
+			x = (pos.left+width /2) / view.maxWidth;
+		}
+
+		var y;
+		if (orgy == 'top') {
+			y = pos.top / view.maxHeight;
+		}
+		else if (orgy == 'bottom') {
+			y = (pos.top + height) / view.maxHeight;
+		}
+		else {
+			y = (pos.top +height/2) / view.maxHeight;
+		}
+
+		elm.data('pos-x', x)
+		   .data('pos-y', y)
+		   .css('left','')
+		   .css('right','')
+		   .css('top','')
+		   .css('bottom','');
+
+		layer.controls.push(elm);
+	});
+
+	// Register audio tags
+	obj.find('audio').each(function() {
+		var delay = 0;
+		if ($(this).data('delay')) {
+			delay = $(this).data('delay');
+		}
+		layer.audios.push({element:this, delay:delay});
+	});
+
+	// Register handler
+	if (obj.data('onstart')) {
+		layer.onStart = obj.data('onstart');
+	}
+	if (obj.data('onend')) {
+		layer.onEnd = obj.data('onend');
+	}
+
+	// Hide object
+	obj.hide().css('visibility', 'visible');
 }
-nefuScene.prototype = {
+nefuLayer.prototype = {
+	//
+	// Show layer
+	//
 	show: function() {
-		for (var i=0; i<this.blocks.length; i++) {
-			var blk = this.blocks[i];
-			blk.show();
-			//blk.css('visibility', 'visible');
+		// Prevent repetition
+		if (this.visible) { return; }
 
-			blk.find('.visible').addClass('nf-visible');
+		// Show layer container
+		this.obj.show();
 
-			blk.find('[data-visible-delay]').each(function() {
-				var elm = $(this);
-				var delay = elm.data('visible-delay');
-				if (delay == 0) {
-					elm.showControl();
-				}
-				else {
-					elm.removeClass('nf-visible');
-					setTimeout(function(e) {
-						e.showControl();
-					}, delay, elm);
-				}
-			});
+		// Show elements
+		this.obj.find('.visible').addClass('nf-visible');
+		this.obj.find('[data-visible-delay]').each(function() {
+			var elm = $(this);
+			var delay = elm.data('visible-delay');
+			if (delay == 0) {
+				elm.showControl();
+			}
+			else {
+				elm.removeClass('nf-visible');
+				setTimeout(function(e) {
+					e.showControl();
+				}, delay, elm);
+			}
+		});
+
+		// Execute handler
+		if (this.onStart) {
+			eval(this.onStart);
 		}
 
-		for (var i=0; i<this.visibleElements.length; i++) {
-			this.visibleElements[i].show();
+		// Play audio
+		this.playAudio();
+
+		// Set property
+		this.visible = true;
+	},
+
+	//
+	// Hide layer
+	//
+	hide: function() {
+		// Check visible
+		if (this.visible != true) { return; }
+
+		// Hide container
+		this.obj.hide();
+
+		// Hide elements
+		this.obj.find('.nf-visible').removeClass('nf-visible');
+
+		// Execute handler
+		if (this.onEnd) {
+			eval(this.onEnd);
 		}
 
-		for (var i=0; i<this.onstarts.length; i++) {
-			eval(this.onstarts[i]);
+		// Stop audio
+		this.stopAudio();
+
+		// Set property
+		this.visible = false;
+	},
+
+	//
+	// Resize controls
+	//
+	_resize: function(left, top, width, height) {
+		for (var i=0; i<this.controls.length; i++) {
+			var elm = this.controls[i];
+			var orgx = elm.data('origin-x');
+			var orgy = elm.data('origin-y');
+
+			var eWidth  = elm.outerWidth();
+			var eHeight = elm.outerHeight();
+
+			var x;
+			if (orgx == 'left') {
+				x = 0;
+			}
+			else if (orgx == 'right') {
+				x = eWidth;
+			}
+			else {
+				x = eWidth / 2;
+			}
+
+			var y;
+			if (orgy == 'top') {
+				y = 0;
+			}
+			else if (orgy == 'bottom') {
+				y = eHeight;
+			}
+			else {
+				y = eHeight / 2;
+			}
+
+			elm.css('left', -left + elm.data('pos-x')*width  - x)
+			   .css('top',  -top  + elm.data('pos-y')*height - y);
 		}
 	},
 
-	hide: function(nextScene) {
-		for (var i=0; i<this.blocks.length; i++) {
-			var blk = this.blocks[i];
-			if (nextScene.blocks.indexOf(blk) < 0) {
-				//blk.css('visibility', 'hidden');
-				blk.hide();
-				blk.find('.nf-visible').removeClass('nf-visible');
+	loadAudio: function() {
+		if (!this.view.audioEnable) { return; }
+
+		for (var i=0; i<this.audios.length; i++) {
+			this.audios[i].element.load();
+		}
+		this.audioLoaded = true;
+	},
+
+	playAudio: function() {
+		if (!this.view.audioEnable) { return; }
+
+		if (!this.audioLoaded) {
+			this.loadAudio();
+		}
+
+		for (var i=0; i<this.audios.length; i++) {
+			var audio = this.audios[i];
+			if (audio.delay == 0) {
+				audio.element.play();
+			}
+			else {
+				setTimeout(function(a) {
+					a.play();
+				}, audio.delay, audio.element);
+			}
+		}
+	},
+
+	stopAudio: function() {
+		if (!this.view.audioEnable) { return; }
+
+		for (var i=0; i<this.audios.length; i++) {
+			var audio = this.audios[i];
+			if (!audio.element.ended) {
+				audio.element.pause();
+				audio.element.currentTime = 0;
+			}
+		}
+
+		this.audioLoaded = false;
+	}
+
+};
+
+
+
+
+
+
+
+function nefuScene() {
+	this.layers = [];
+	this.visibleElements = [];
+	this.isPlayingMessage;
+}
+nefuScene.prototype = {
+	_show: function() {
+		for (var i=0; i<this.visibleElements.length; i++) {
+			this.visibleElements[i].show();
+		}
+		for (var i=0; i<this.layers.length; i++) {
+			this.layers[i].show();
+		}
+	},
+
+	_hide: function(nextScene) {
+		for (var i=0; i<this.layers.length; i++) {
+			var layer = this.layers[i];
+			if (nextScene.layers.indexOf(layer) < 0) {
+				layer.hide();
 			}
 		}
 		for (var i=0; i<this.visibleElements.length; i++) {
@@ -109,27 +330,101 @@ nefuScene.prototype = {
 		}
 	},
 
-	playAudio: function() {
-		for (var i=0; i<this.audio.length; i++) {
-			var audio = this.audio[i];
-			if (audio.delay == 0) {
-				audio.element.play();
-			}
-			else {
-				setTimeout(function(a) {
-					a.play();
-				}, audio.delay, audio);
-			}
+	_loadAudio: function() {
+		for (var i=0; i<this.layers.length; i++) {
+			this.layers[i].loadAudio();
 		}
 	},
 
-	stopAudio: function() {
-		for (var i=0; i<this.audio.length; i++) {
-			var audio = this.audio[i];
-			if (audio.autostop && !audio.element.ended) {
-				audio.element.pause();
-				audio.element.currentTime = 0;
+	_containsLayer: function(layer) {
+		return this.layers.indexOf(layer) >= 0;
+	}
+};
+
+
+
+
+
+
+function nefuWindow(view, obj) {
+	this.obj = obj;
+	this.view = view;
+
+	var wnd = this;
+
+	// Register close button
+	obj.find('.close').click(function() {
+		wnd.obj.removeClass('nf-visible');
+	});
+
+	// Initialize titlebars, moving
+	obj.find('.title').mousedown(function(downev) {
+		var pos = wnd.obj.position();
+		$(document).on('mousemove.nefu', function(ev) {
+			var nposX = pos.left + ev.pageX-downev.pageX;
+			var nposY = pos.top  + ev.pageY-downev.pageY;
+			
+			wnd.obj.css('left', nposX)
+			   		 .css('top',  nposY);
+
+			var orgx = wnd.obj.data('origin-x');
+			var orgy = wnd.obj.data('origin-y');
+
+			var width  = wnd.obj.outerWidth(true);
+			var height = wnd.obj.outerHeight(true);
+
+			var mWidth  = view.maxWidth  * view.curScale;
+			var mHeight = view.maxHeight * view.curScale;
+
+			var x;
+			if (orgx == 'left') {
+				x = (nposX + view.controlOffsetLeft + 0) / mWidth;
 			}
+			else if (orgx == 'right') {
+				x = (nposX + view.controlOffsetLeft + width) / mWidth;
+			}
+			else {
+				x = (nposX + view.controlOffsetLeft + width /2) / mWidth;
+			}
+
+			var y;
+			if (orgy == 'top') {
+				y = (nposY + view.controlOffsetTop + 0) / mHeight;
+			}
+			else if (orgy == 'bottom') {
+				y = (nposY + view.controlOffsetTop + height) / mHeight;
+			}
+			else {
+				y = (nposY + view.controlOffsetTop + height/2) / mHeight;
+			}
+
+			wnd.obj.data('pos-x', x)
+			       .data('pos-y', y);
+		});
+	}).mouseup(function() {
+		$(document).off('mousemove.nefu');
+	});
+
+}
+nefuWindow.prototype = {
+	show: function() {
+		this.obj.addClass('nf-visible');
+	},
+
+	hide: function() {
+		this.obj.removeClass('nf-visible');
+	},
+
+	visible: function() {
+		return this.obj.hasClass('nf-visible');
+	},
+
+	toggle: function() {
+		if (this.visible) {
+			this.hide();
+		}
+		else {
+			this.show();
 		}
 	}
 };
@@ -138,13 +433,235 @@ nefuScene.prototype = {
 
 
 
-function nefuView(wrapperElement, config) {
+
+function nefuPreload(urls, cbProgress, cbFinish, cbError) {
+		// Start preloading resources
+		var preloadNum = urls.length;
+
+		function getExtension(filename) {
+			var ss = filename.split('.');
+			return ss[ss.length-1].toLowerCase();
+		}
+
+		function loadImageNext(arr) {
+			if (arr.length == 0) {
+				if (cbFinish) { cbFinish(); }
+				return;
+			}
+			if (cbProgress) {
+				cbProgress(1 - arr.length / preloadNum);
+			}
+			
+			var src = arr.pop();
+			var ext = getExtension(src);
+
+			if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
+				var tmp = new Image();
+				tmp.onload = function() {
+					loadImageNext(arr);
+				};
+				tmp.onerror = function() {
+					if (cbError) { cbError(); }
+				};
+				tmp.src = src;
+			}
+			else if (ext == 'mp3') {
+				loadImageNext(arr);
+				/*var tmp = new Audio();
+				tmp.autoplay = false;
+				tmp.onloadeddata = function() {
+					loadImageNext(arr);
+				};
+				tmp.onerror = function() {
+					if (config.preloadError) { config.preloadError(); }
+				};
+				tmp.src = src;
+				tmp.load();*/
+			}
+		}
+
+		loadImageNext(urls);
+}
+
+
+
+
+
+
+function nefuAutoPopup(view, config) {
+	this._view = view;
+
+	this.config = $.extend({
+		default: {},
+		minRest: 1000,
+		maxRest: 3000,
+		shuffle: true
+	},
+	config);
+
+	this._texts = [];
+	this._started = false;
+	this._lastPopup = null;
+	this._indices = [];
+	this._lastIndex = -1;
+	this._interruptText = null;
+	this._lastTimer = -1;
+}
+nefuAutoPopup.prototype = {
+	set: function(texts) {
+		this._texts = texts;
+		this._makeIndices();
+		return this;
+	},
+
+	_makeIndices: function() {
+		var len = this._texts.length;
+		var arr = [];
+
+		// Make indices array
+		for (var n=len-1; n>=0; n--) {
+			arr.push(n);
+		}
+
+		if (len > 1 && this.config.shuffle == true) {
+			// Shuffle indices
+			do {
+				$.shuffle(arr);
+			} while(arr[len-1] == this._lastIndex)
+		}
+
+		this._indices = arr;
+	},
+
+	_setNext: function(delay) {
+		var self = this;
+
+		// Calculate rest time
+		var rest = this.config.minRest + 
+			Math.random() * (this.config.maxRest - this.config.minRest);
+
+		// Set timer
+		this._lastTimer = setTimeout(function() {
+			if (self.started = true) {
+				self._say();
+			}
+		},
+		delay + rest);
+	},
+
+	_say: function(text) {
+		var self = this;
+
+		// Get text
+		if (!text) {
+			if (this._indices.length == 0) {
+				this._makeIndices();
+			}
+			var idx = this._indices.pop();
+			this._lastIndex = idx;
+			text = this._texts[idx];
+		}
+
+		// Merge with default values
+		text = $.extend({}, this.config.default, text);
+
+		// Say
+		this._lastPopup = this._view.say(text);
+
+		// Set next
+		if (this.started == true && this._lastPopup.duration > 0) {
+			this._setNext(this._lastPopup.duration);
+		}
+	},
+
+	start: function() {
+		if (this.started) { return this; }
+		this.started = true;
+		this._setNext(0);
+		return this;
+	},
+
+	stop: function() {
+		this.started = false;
+
+		// Cancel timer
+		if (this._lastTimer) {
+			clearTimeout(this._lastTimer);
+			this._lastTimer = null;
+		}
+
+		return this;
+	},
+
+	interrupt: function(text) {
+		// Cancel timer
+		if (this._lastTimer) {
+			clearTimeout(this._lastTimer);
+			this._lastTimer = null;
+		}
+
+		// Hide popup immediately
+		if (this._lastPopup) {
+			this._lastPopup.hide();
+			this._lastPopup = null;
+		}
+
+		// Say immediately
+		this._say(text);
+
+		return this;
+	}
+};
+
+
+
+
+
+function nefuChat(view, cbInput) {
+	// Create chat area
+	var chat = $('<div class="nf-chat"><input class="text" type="text" /><div class="send loc-say">発言</div></div>');
+	view.wrapper.append(chat);
+	this.obj = chat;
+
+	this.cbInput = cbInput;
+	var self = this;
+
+	// Set handlers
+	var chatInput = chat.find('.text');
+	chatInput.keypress(function(ev) {
+		if (ev.keyCode && ev.keyCode === 13) {
+			self.cbInput($(this).val());
+			$(this).val('');
+		}
+	});
+	chat.find('.send').click(function() {
+		self.cbInput(chatInput.val());
+		chatInput.val('');
+	});
+}
+nefuChat.prototype = {
+
+};
+
+
+
+
+
+function nefuView(wrapperElement, defaultSceneName) {
 	// Initialize members
 	this.scenes = [];
 	this.flags = [];
 	this.audioEnable = true;
 	this.curWidth = 0;
 	this.curHeight = 0;
+
+	this.layers = [];
+	this.layerById = [];
+
+	this.windows = [];
+	this.windowById = [];
+
+	this._popups = [];
 
 	var view = this;
 	var wrapper = $(wrapperElement);
@@ -157,107 +674,19 @@ function nefuView(wrapperElement, config) {
 	this.minHeight = wrapper.data('min-height');
 	this.minScale  = wrapper.data('min-scale');
 
-	// Initialize cover
-	this.cover = $('<div class="nf-cover"></div>');
-	wrapper.append(this.cover);
+	// Initialize layers
+	wrapper.find('.nf-layer').each(function() {
+		// Create layer
+		var layer = new nefuLayer(view, $(this));
 
-	// Initialize scenes
-	wrapper.find('.nf-scene[data-scene]').each(function(idx) {
-		var self = $(this);
-
-		// Parse scene names
-		var snames = self.data('scene').split(' ');
-		for (var i=0; i<snames.length; i++) {
-			view.ensureScene(snames[i]).blocks.push(self);
+		// Register layer
+		view.layers.push(layer);
+		if (this.id) {
+			view.layerById[this.id] = layer;
 		}
-
-		// Register elements
-		self.children().each(function() {
-			var elm = $(this);
-			if (elm.hasClass('nf-image')) return;
-			if (elm.hasClass('nf-static')) return;
-
-			var orgx = elm.data('origin-x');
-			var orgy = elm.data('origin-y');
-			var pos = elm.position();
-			var width = elm.outerWidth(true);
-			var height = elm.outerHeight(true);
-
-			var x;
-			if (orgx == 'left') {
-				x = pos.left / view.maxWidth;
-			}
-			else if (orgx == 'right') {
-				x = (pos.left + width) / view.maxWidth;
-			}
-			else {
-				x = (pos.left+width /2) / view.maxWidth;
-			}
-
-			var y;
-			if (orgy == 'top') {
-				y = pos.top / view.maxHeight;
-			}
-			else if (orgy == 'bottom') {
-				y = (pos.top + height) / view.maxHeight;
-			}
-			else {
-				y = (pos.top +height/2) / view.maxHeight;
-			}
-
-			elm.data('pos-x', x)
-			   .data('pos-y', y)
-			   .css('left','')
-			   .css('right','')
-			   .css('top','')
-			   .css('bottom','');
-
-			for (var i=0; i<snames.length; i++) {
-				view.scenes[snames[i]].controls.push(elm);
-			}
-		});
-
-		// Register messages
-		self.find('.nf-message').each(function() {
-			var elm = $(this);
-			var grp = elm.data('message-group');
-			if (grp) {
-				for (var i=0; i<snames.length; i++) {
-					var sname = snames[i];
-					if (!(grp in view.scenes[sname].msggroups)) {
-						view.scenes[sname].msggroups[grp] = [];
-					}
-					view.scenes[sname].msggroups[grp].push(elm);
-				}
-			}
-		});
-
-		// Register audio tags
-		self.find('audio').each(function() {
-			var delay = 0;
-			if ($(this).data('delay')) {
-				delay = $(this).data('delay');
-			}
-			var autostop = true;
-			if ($(this).data('auto-stop') == false) {
-				autostop = $(this).data('auto-stop');
-			}
-
-			for (var i=0; i<snames.length; i++) {
-				var sname = snames[i];
-				view.scenes[sname].audio.push({element:this, delay:delay, autostop:autostop});
-			}
-		});
-
-		// Register onSceneStart handler
-		if (self.data('onscenestart')) {
-			for (var i=0; i<snames.length; i++) {
-				var sname = snames[i];
-				view.scenes[sname].onstarts.push(self.data('onscenestart'));
-			}
+		for (var i=0; i<layer.sceneNames.length; i++) {
+			view._ensureScene(layer.sceneNames[i]).layers.push(layer);
 		}
-
-		self.hide().css('visibility', 'visible');
 	});
 
 	// Initialize elements shown at specified scenes
@@ -270,86 +699,28 @@ function nefuView(wrapperElement, config) {
 		self.hide();
 	});
 
-	// Initialize window close-buttons
-	wrapper.find('.nf-window .close').each(function() {
-		var elm = $(this);
-		var wnd = elm.parents('.nf-window');
-		(function() {
-			var w = wnd;
-			elm.click(function() {
-				w.removeClass('nf-visible');
-			});
-		})();
-	});
+	// Initialize windows
+	wrapper.find('.nf-window').each(function() {
+		// Create window
+		var wnd = new nefuWindow(view, $(this));
 
-	// Initialize window titlebars, moving
-	wrapper.find('.nf-window .title').each(function() {
-		var self = $(this);
-		(function() {
-			var elm = self;
-			var par = self.parent();
-			elm.mousedown(function(downev) {
-				var pos = par.position();
-				$(document).on('mousemove.nefu', function(ev) {
-					var nposX = pos.left + ev.pageX-downev.pageX;
-					var nposY = pos.top  + ev.pageY-downev.pageY;
-					
-					par.css('left', nposX)
-					   .css('top',  nposY);
-
-					var orgx = par.data('origin-x');
-					var orgy = par.data('origin-y');
-
-					var width  = par.outerWidth(true);
-					var height = par.outerHeight(true);
-
-					var mWidth  = view.maxWidth  * view.curScale;
-					var mHeight = view.maxHeight * view.curScale;
-
-					var x;
-					if (orgx == 'left') {
-						x = (nposX + view.controlOffsetLeft + 0) / mWidth;
-					}
-					else if (orgx == 'right') {
-						x = (nposX + view.controlOffsetLeft + width) / mWidth;
-					}
-					else {
-						x = (nposX + view.controlOffsetLeft + width /2) / mWidth;
-					}
-
-					var y;
-					if (orgy == 'top') {
-						y = (nposY + view.controlOffsetTop + 0) / mHeight;
-					}
-					else if (orgy == 'bottom') {
-						y = (nposY + view.controlOffsetTop + height) / mHeight;
-					}
-					else {
-						y = (nposY + view.controlOffsetTop + height/2) / mHeight;
-					}
-
-					par.data('pos-x', x)
-					   .data('pos-y', y);
-				});
-			});
-
-			elm.mouseup(function() {
-				$(document).off('mousemove.nefu');
-			});
-		})();
-	});
-
-	// Initialize chat input
-	wrapper.find('.nf-chat .text').keypress(function(ev) {
-		if (ev.keyCode && ev.keyCode === 13) {
-			view.say($(this).val());
-			$(this).val('');
+		// Register window
+		view.windows.push(wnd);
+		if (this.id) {
+			view.windowById[this.id] = wnd;
 		}
 	});
-	wrapper.find('.nf-chat .send').click(function() {
-		view.say($(this).val());
-		$(this).val('');
-	});
+
+	// Initialize popup layer
+	var popupLayerElm = $('<div class="nf-layer"></div>');
+	wrapper.append(popupLayerElm);
+	this._popupLayer = new nefuLayer(view, popupLayerElm);
+	this._popupLayer.show();
+	this.layers.push(this._popupLayer);
+
+	// Create cover
+	this.cover = $('<div class="nf-cover"></div>');
+	wrapper.append(this.cover);
 
 	// Register resize handler, and do initial resize
 	$(window).resize(function() {
@@ -357,66 +728,16 @@ function nefuView(wrapperElement, config) {
 	});
 	this.resize($(window).width(), $(window).height());
 
-	if (config.defaultScene) {
-		// Go to specified scene
-		this.changeScene(config.defaultScene);
+	// Go to default scene
+	if (defaultSceneName) {
+		this.changeScene(defaultSceneName);
 	}
 	else {
-		// Go to default scene
 		this.changeScene('default');
-
-		// Start preloading resources
-		if (config.preloads) {
-			var preloadNum = config.preloads.length;
-
-			function getExtension(filename) {
-				var ss = filename.split('.');
-				return ss[ss.length-1].toLowerCase();
-			}
-
-			function loadImageNext(arr, fProgress, fFinish, fError) {
-				if (arr.length == 0) {
-					if (config.preloadFinish) { config.preloadFinish(); }
-					return;
-				}
-				if (config.preloadProgress) {
-					config.preloadProgress(1 - arr.length / preloadNum);
-				}
-				
-				var src = arr.pop();
-				var ext = getExtension(src);
-
-				if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
-					var tmp = new Image();
-					tmp.onload = function() {
-						loadImageNext(arr);
-					};
-					tmp.onerror = function() {
-						if (config.preloadError) { config.preloadError(); }
-					};
-					tmp.src = src;
-				}
-				else if (ext == 'mp3') {
-					loadImageNext(arr);
-					/*var tmp = new Audio();
-					tmp.autoplay = false;
-					tmp.onloadeddata = function() {
-						loadImageNext(arr);
-					};
-					tmp.onerror = function() {
-						if (config.preloadError) { config.preloadError(); }
-					};
-					tmp.src = src;
-					tmp.load();*/
-				}
-			}
-
-			loadImageNext(config.preloads);
-		}
 	}
 }
 nefuView.prototype = {
-	ensureScene: function(sceneName) {
+	_ensureScene: function(sceneName) {
 		if (!(sceneName in this.scenes)) {
 			this.scenes[sceneName] = new nefuScene();
 		}
@@ -424,333 +745,249 @@ nefuView.prototype = {
 	},
 
 	resize: function(wWidth, wHeight) {
-		this.curWidth = wWidth;
-		this.curHeight = wHeight;
+		if (!wWidth) { wWidth = this.curWidth; }
+		if (!wHeight) { wHeight = this.curHeight; }
 
-		var r = Math.min(1, Math.max(this.minScale, Math.min(wWidth/this.minWidth, wHeight/this.minHeight)));
-		this.curScale = r;
+		// Calculate scale ratio
+		var r = Math.min(1, 
+			Math.max(this.minScale, 
+				Math.min(wWidth / this.minWidth, wHeight / this.minHeight)));
 
-		this.wrapper.find('.nf-image').css('transform', 'scale('+r+')');
-
+		// Calculate scaled size
 		var rWidth = (this.maxWidth * r) | 0;
-		var rMinWidth = (this.minWidth * r) | 0;
 		var rHeight = (this.maxHeight * r) | 0;
+		var rMinWidth = (this.minWidth * r) | 0;
 		var rMinHeight = (this.minHeight * r) | 0;
 
+		// Calculate visible rectangle
+		var vWidth  = Math.min(rWidth,  Math.max(rMinWidth,  wWidth));
+		var vHeight = Math.min(rHeight, Math.max(rMinHeight, wHeight));
+		var eLeft = Math.max(0, (rWidth  - vWidth ) / 2);
+		var eTop  = Math.max(0, (rHeight - vHeight) / 2);
+
+		// Set properties
+		this.curWidth = wWidth;
+		this.curHeight = wHeight;
+		this.curScale = r;
+		this.controlOffsetLeft = eLeft;
+		this.controlOffsetTop  = eTop;
+
+		// Adjust wrapper overflow
 		if (wHeight < rMinHeight || wWidth < rMinWidth) {
 			$('body').css('overflow', 'auto');
 		} else {
 			$('body').css('overflow', 'hidden');
 		}
 
-		var vWidth  = Math.min(rWidth,  Math.max(rMinWidth,  wWidth));
-		var vHeight = Math.min(rHeight, Math.max(rMinHeight, wHeight));
-
+		// Resize wrapper
 		this.wrapper.width(vWidth)
 		            .height(vHeight);
 
-		var eLeft = Math.max(0, (rWidth  - vWidth ) / 2);
-		var eTop  = Math.max(0, (rHeight - vHeight) / 2);
-
-		this.controlOffsetLeft = eLeft;
-		this.controlOffsetTop  = eTop;
-
+		// Resize images
 		this.wrapper.find('.nf-image')
+								.css('transform', 'scale('+r+')')
 		            .css('left', -eLeft)
 		            .css('top',  -eTop);
 
-		if (this.curScene) {
-			for (var i=0; i<this.curScene.controls.length; i++) {
-				var elm = this.curScene.controls[i];
-				var orgx = elm.data('origin-x');
-				var orgy = elm.data('origin-y');
-
-				var eWidth  = elm.outerWidth();
-				var eHeight = elm.outerHeight();
-
-				var x;
-				if (orgx == 'left') {
-					x = 0;
-				}
-				else if (orgx == 'right') {
-					x = eWidth;
-				}
-				else {
-					x = eWidth / 2;
-				}
-
-				var y;
-				if (orgy == 'top') {
-					y = 0;
-				}
-				else if (orgy == 'bottom') {
-					y = eHeight;
-				}
-				else {
-					y = eHeight / 2;
-				}
-
-				elm.css('left', -eLeft + elm.data('pos-x')*rWidth  - x)
-				   .css('top',  -eTop  + elm.data('pos-y')*rHeight - y);
+		// Resize visible layers
+		for (var i=0; i<this.layers.length; i++) {
+			if (this.layers[i].visible) {
+				this.layers[i]._resize(eLeft, eTop, rWidth, rHeight);
 			}
 		}
 	},
 
-	changeScene: function(sceneName, fade, fadeDuration) {
+
+	_fade: function(fadeColor, fadeDuration, sceneName) {
+		if (!fadeDuration) { fadeDuration = 0; }
+
+		var view = this;
+		var cover = this.cover;
+
+		cover.css('background-color', fadeColor);
+
+		cover.on('animationend', function() {
+			setTimeout(function() {
+				cover.off('animationend');
+
+				if (sceneName) {
+					view.changeScene(sceneName, false);
+				}
+
+				setTimeout(function() {
+					cover.on('animationend', function() {
+						cover.off('animationend')
+						     .removeClass('nf-hide');
+					});
+					cover.removeClass('nf-visible')
+					     .addClass('nf-hide');
+				},
+				fadeDuration);
+
+			},
+			16); //wait 1 frame
+		});
+
+		cover.addClass('nf-visible');
+	},
+
+
+	fade: function(fadeColor, fadeDuration) {
+		this._fade(fadeColor, fadeDuration);
+		return this;
+	},
+
+
+	changeScene: function(sceneName, fadeColor, fadeDuration) {
+		var prevScene = this.curScene;
 		var nextScene = this.scenes[sceneName];
 
+		// Load audios
 		if (this.audioEnable) {
-			if (nextScene.audio.length > 0) {
-				nextScene.audio[0].element.load();
-			}
+			nextScene._loadAudio();
 		}
 
-		if (fade) {
-			if (!fadeDuration) {
-				fadeDuration = 0;
-			}
-
-			var view = this;
-			var cover = this.cover;
-
-			if (fade == true) {
-				cover.css('background-color', 'black');
-			} else {
-				cover.css('background-color', fade);
-			}
-
-			cover.on('animationend', function() {
-				setTimeout(function() {
-					cover.off('animationend');
-					view.changeScene(sceneName, false);
-
-					setTimeout(function() {
-						cover.on('animationend', function() {
-							cover.off('animationend')
-							     .removeClass('nf-hide');
-						});
-						cover.removeClass('nf-visible')
-						     .addClass('nf-hide');
-					},
-					fadeDuration);
-
-				},
-				16); //wait 1 frame
-			});
-
-			cover.addClass('nf-visible');
-
+		// Fade
+		if (fadeColor) {
+			// hide popups before fade
+			this.clearPopups();
+			// Do fading
+			this._fade(fadeColor, fadeDuration, sceneName);
 			return;
 		}
+		
+		// Hide scene
+		if (prevScene) {
+			prevScene._hide(nextScene, this.audioEnable);
+		}
 
+		// Show scene
+		nextScene._show(this.audioEnable);
+		
+		// Resize
+		this.resize();
+
+		// Set properties
 		this.curSceneName = sceneName;
 		this.curScene = nextScene;
 
-		for (var sname in this.scenes) {
-			this.scenes[sname].hide(nextScene);
-			if (this.audioEnable) { 
-				this.scenes[sname].stopAudio();
-			}
-		}
-		
-		nextScene.show();
-
-		for (var grp in nextScene.msggroups) {
-			var t = 200 + 500 * Math.random();
-			setTimeout(function(view, s, g) {
-				view.showNextMessage(s, g);
-			}, t, this, sceneName, grp);
-		}
-
-		this.updateFlagVisible();
-		this.resize(this.curWidth, this.curHeight);
-
-		if (this.audioEnable) {
-			//nextScene.playAudio();
-			if (nextScene.audio.length > 0) {
-				nextScene.audio[0].element.play();
-			}
-		}
+		return this;
 	},
 
-	showMessage: function(msg, defaultDuration) {
-		msg.addClass('nf-visible');
 
-		var duration = msg.data('duration');
-		if (!duration) {
-			duration = defaultDuration;
-		}
-
-		setTimeout(function(m) {
-			m.on('animationend', function() {
-				m.off('animationend')
-				 .removeClass('nf-hide');
-			});
-			m.removeClass('nf-visible')
-			 .addClass('nf-hide');
+	say: function(config) {
+		config = $.extend({
+			text: '',
+			title: '',
+			x: 0,
+			y: 0,
+			direction: 'left',	// 'left', 'right', 'auto'
+			duration: 'auto',	// 'auto', 0(infinity), integer
+			color: '1',
+			loud: false
 		}, 
-		duration, msg);
+		config);
 
-		return duration;
-	},
-
-	showNextMessage: function(scene, grp, idx) {
-		if (scene != this.curSceneName) return;
-		if (!(scene in this.scenes)) return;
-		if (!(grp in this.scenes[scene].msggroups)) return;
-
-		var msgs = this.scenes[scene].msggroups[grp];
-
-		if (!idx) {
-			idx = 0;
+		// Find inactive popup
+		var popup = null;
+		for (var i=0; i<this._popups.length; i++) {
+			if (!this._popups[i].hasClass('nf-visible') && !this._popups[i].hasClass('nf-hide')) {
+				popup = this._popups[i];
+				break;
+			}
 		}
-		if (idx < 0 || idx >= msgs.length) {
-			idx = 0;
+
+		// Create a new popup if needed
+		if (popup == null) {
+			popup = $('<div class="nf-message"><span class="title"></span><span class="text"></span></div>');
+			this._popups.push(popup);
+			this._popupLayer.obj.append(popup);
+			this._popupLayer.controls.push(popup);
+
+			popup.hide = function() {
+				if (popup.durationTimer) {
+					clearTimeout(popup.durationTimer);
+					popup.durationTimer = null;
+					popup.duration = null;
+				}
+
+				if (popup.hasClass('nf-visible')) {
+					popup.on('animationend', function() {
+						popup.off('animationend')
+						 .removeClass('nf-hide');
+					});
+
+					popup.removeClass('nf-visible')
+					 .addClass('nf-hide');
+				}
+			};
 		}
 		
-		var msg = msgs[idx];
+		// Set text and title
+		popup.find('.text').text(config.text);
+		popup.find('.title').text(config.title);
 
-		var duration = 3000;
-		var delay = 500 + 1000 * Math.random();
+		// Set position
+		popup.data('pos-x', config.x / this.maxWidth)
+				 .data('pos-y', config.y / this.maxHeight);
 
-		duration = this.showMessage(msg, duration);
+		// Set direction
+		var dir = config.direction;
+		popup.removeClass('left right')
+		     .addClass(dir)
+		     .data('origin-x', dir)
+		     .data('origin-y', 'bottom');
 
-		var nextIdx = idx + 1;
+		// Set color
+		popup.removeClass('color1 color2 color3 color4 color5 color6 color7 color8 color9');
+		popup.addClass('color' + config.color);
 
-		(function(view) {
-			var s = scene;
-			var g = grp;
-			var i = nextIdx;
-			var v = view;
-			setTimeout(function(view) {
-				view.showNextMessage(s, g, i);
-			}, duration + delay, view);
-		})(this);
-	},
-
-	onFlag: function(flag) {
-		if (!(flag in this.flags)) {
-			this.flags[flag] = 1;
-			this.updateFlagVisible();
-		}
-	},
-
-	offFlag: function(flag) {
-		if (flag in this.flags) {
-			delete this.flags[flag];
-			this.updateFlagVisible();
-		}
-	},
-
-	checkFlag: function(flag) {
-		if (flag in this.flags) {
-			return true;
-		}
-		return false;
-	},
-
-	checkFlags: function(flags) {
-		for (var i=0; i<flags.length; i++) {
-			if (flags[i] in this.flags) {
-				return true;
-			}
-		}
-		return false;
-	},
-
-	checkAllFlags: function(flags) {
-		for (var i=0; i<flags.length; i++) {
-			if (!(flags[i] in this.flags)) {
-				return false;
-			}
-		}
-		return true;
-	},
-
-	updateFlagVisible: function() {
-		var view = this;
-		var scene = this.scenes[this.curSceneName];
-		for (var i=0; i<scene.blocks.length; i++) {
-			scene.blocks[i].find('[data-visible-flags]').each(function() {
-				var self = $(this);
-				var flags = self.data('visible-flags').split(' ');
-				if (view.checkAllFlags(flags)) {
-					self.addClass('nf-visible');
-				}
-				else {
-					self.removeClass('nf-visible');
-				}
-			});
-			scene.blocks[i].find('[data-hide-flags]').each(function() {
-				var self = $(this);
-				var flags = self.data('hide-flags').split(' ');
-				if (view.checkFlags(flags)) {
-					self.removeClass('nf-visible');
-				}
-				else {
-					if (self.hasClass('visible')) {
-						self.addClass('nf-visible');
-					}
-				}
-			});
-			var onflagchange = scene.blocks[i].data('onflagchange');
-			if (onflagchange) {
-				eval(onflagchange);
-			}
-		}
-	},
-
-	showWindow: function(wid) {
-		var wnd = $("#" + wid);
-		wnd.addClass('nf-visible');
-	},
-
-	hideWindow: function(wid) {
-		var wnd = $("#" + wid);
-		wnd.removeClass('nf-visible');
-	},
-
-	toggleWindow: function(wid) {
-		var wnd = $("#" + wid);
-		if (wnd.hasClass('nf-visible')) {
-			wnd.removeClass('nf-visible');
+		// Set loud
+		if (config.loud == true) {
+			popup.addClass('loud');
 		}
 		else {
-			wnd.addClass('nf-visible');
+			popup.removeClass('loud');
 		}
-	},
 
-	say: function(text) {
-		if (text == '') return;
-
-		var msg = $('<div class="nf-message nf-visible color2">' + text + '</div>');
-		var x = Math.random();
-		if (x < 0.5) {
-			msg.addClass('left')
-			   .css('left', ((x*100)|0)+'%');
+		// Calculate auto duration
+		var dur = config.duration;
+		if (dur == 'auto') {
+			dur = Math.max(2000, config.text.length * 100);	// ToDo: 
+		}
+		
+		// Set duration timer
+		if (dur > 0) {
+			popup.duration = dur;
+			popup.durationTimer = setTimeout(function(m) {
+				m.durationTimer = null;
+				m.duration = null;
+				m.hide();
+			}, 
+			dur, popup);
 		}
 		else {
-			msg.addClass('right')
-			   .css('right', (((x-0.5)*100)|0)+'%');
+			popup.duration = null;
+			popup.durationTimer = null;
 		}
-		msg.css('bottom', '40px');
-		this.wrapper.append(msg);
 
-		var duration = 5000;
+		// Show
+		this.resize();	// ToDo: should resize only popup
+		popup.addClass('nf-visible');
 
-		(function() {
-			var m = msg;
-			setTimeout(function() {
-				m.on('animationend', function() {
-					m.off('animationend')
-					 .removeClass('nf-hide');
-				});
-				m.removeClass('nf-visible')
-				 .addClass('nf-hide');
-			},
-			duration);
-		})();
+		return popup;
 	},
+
+
+	clearPopups: function() {
+		// hide all popups
+		for (var i=0; i<this._popups.length; i++) {
+			if (this._popups[i].hasClass('nf-visible') || this._popups[i].hasClass('nf-hide')) {
+				this._popups[i].removeClass('nf-visible nf-hide');
+			}
+		}
+	},
+
 
 	getUrlArgs: function() {
 		var args = [];

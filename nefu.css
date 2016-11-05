@@ -66,17 +66,17 @@ a {
 }
 
 
-.nf-scene {
+.nf-layer {
 	position: absolute;
 	visibility: hidden;
 	width: 100%;
 	height: 100%;
 	pointer-events: none;
 }
-.nf-scene > * {
+.nf-layer > * {
 	pointer-events: auto;
 }
-.nf-scene > img {
+.nf-layer > img {
 	pointer-events: none;
 }
 
@@ -98,7 +98,7 @@ a {
   filter: blur(10px);
 }
 
-.nf-static {
+.nf-layer .static {
 	position: absolute;
 }
 
