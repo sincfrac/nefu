@@ -126,7 +126,7 @@ nefuScene.prototype = {
 	stopAudio: function() {
 		for (var i=0; i<this.audio.length; i++) {
 			var audio = this.audio[i];
-			if (!audio.element.ended) {
+			if (audio.autostop && !audio.element.ended) {
 				audio.element.pause();
 				audio.element.currentTime = 0;
 			}
@@ -238,9 +238,14 @@ function nefuView(wrapperElement, config) {
 			if ($(this).data('delay')) {
 				delay = $(this).data('delay');
 			}
+			var autostop = true;
+			if ($(this).data('auto-stop') == false) {
+				autostop = $(this).data('auto-stop');
+			}
+
 			for (var i=0; i<snames.length; i++) {
 				var sname = snames[i];
-				view.scenes[sname].audio.push({element:this, delay:delay});
+				view.scenes[sname].audio.push({element:this, delay:delay, autostop:autostop});
 			}
 		});
 
@@ -543,7 +548,7 @@ nefuView.prototype = {
 
 		for (var sname in this.scenes) {
 			this.scenes[sname].hide(nextScene);
-			if (this.audioEnable) {
+			if (this.audioEnable) { 
 				this.scenes[sname].stopAudio();
 			}
 		}
