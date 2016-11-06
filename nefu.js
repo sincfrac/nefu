@@ -49,6 +49,10 @@ http://opensource.org/licenses/mit-license.php
 		}
 		return arr;
   };
+
+  $.sample = function(arr) {
+  	return arr[Math.floor(Math.random()*arr.length)];
+  };
 })( jQuery );
 
 
@@ -64,6 +68,7 @@ function nefuLayer(view, obj) {
 	this.audios = [];
 	this.onStart = null;
 	this.onEnd = null;
+	this.onUpdate = null;
 	this.visible = false;
 	this.audioLoaded = false;
 	var layer = this;
@@ -133,6 +138,9 @@ function nefuLayer(view, obj) {
 	}
 	if (obj.data('onend')) {
 		layer.onEnd = obj.data('onend');
+	}
+	if (obj.data('onupdate')) {
+		layer.onUpdate = obj.data('onupdate');
 	}
 
 	// Hide object
@@ -226,6 +234,11 @@ nefuLayer.prototype = {
 				elm.removeClass('nf-visible');
 			}
 		});
+
+		// Execute handler
+		if (this.onUpdate) {
+			eval(this.onUpdate);
+		}
 
 		return this;
 	},
@@ -838,7 +851,7 @@ nefuView.prototype = {
 	},
 
 
-	_fade: function(fadeColor, fadeDuration, sceneName) {
+	fade: function(fadeColor, fadeDuration, callback) {
 		if (!fadeDuration) { fadeDuration = 0; }
 
 		var view = this;
@@ -850,8 +863,8 @@ nefuView.prototype = {
 			setTimeout(function() {
 				cover.off('animationend');
 
-				if (sceneName) {
-					view.changeScene(sceneName, false);
+				if (callback) {
+					callback();
 				}
 
 				setTimeout(function() {
@@ -869,11 +882,7 @@ nefuView.prototype = {
 		});
 
 		cover.addClass('nf-visible');
-	},
 
-
-	fade: function(fadeColor, fadeDuration) {
-		this._fade(fadeColor, fadeDuration);
 		return this;
 	},
 
@@ -881,6 +890,8 @@ nefuView.prototype = {
 	changeScene: function(sceneName, fadeColor, fadeDuration) {
 		var prevScene = this.curScene;
 		var nextScene = this.scenes[sceneName];
+		var view = this;
+		var name = sceneName;
 
 		// Load audios
 		if (this.audioEnable) {
@@ -891,8 +902,12 @@ nefuView.prototype = {
 		if (fadeColor) {
 			// hide popups before fade
 			this.clearPopups();
+
 			// Do fading
-			this._fade(fadeColor, fadeDuration, sceneName);
+			this.fade(fadeColor, fadeDuration, function() {
+				view.changeScene(name, false);
+			});
+
 			return;
 		}
 		
@@ -922,6 +937,14 @@ nefuView.prototype = {
 				this.layers[i].update();
 			}
 		}
+	},
+
+	fadeUpdate: function(fadeColor, fadeDuration) {
+		var view = this;
+		this.fade(fadeColor, fadeDuration, function() {
+			view.update();
+		});
+		return this;
 	},
 
 
