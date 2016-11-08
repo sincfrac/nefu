@@ -853,7 +853,6 @@ nefuPopupLayer.prototype = {
 
 function nefuView(viewElement, config) {
 	// Initialize members
-	this.audioEnable = true;
 	this.curWidth = 0;
 	this.curHeight = 0;
 
@@ -870,20 +869,26 @@ function nefuView(viewElement, config) {
 	var $obj = $(viewElement);
 	this.$obj = $obj;
 
-	// Get config
-	this.config = $.extend({
-		startScene: 'default',
-		fullSize: false
-	},
-	config);
-
 	// Get view parameters
 	this.maxWidth  = $obj.width();
 	this.maxHeight = $obj.height();
-	this.minWidth  = $obj.data('min-width');
-	this.minHeight = $obj.data('min-height');
-	this.minScale  = $obj.data('min-scale');
-	this.defaultSceneName = $obj.data('default-scene') || 'default';
+
+	// Get config
+	this.config = $.extend({
+		startScene: 'default',
+		fullSize: false,
+		minWidth: this.maxWidth,
+		minHeight: this.maxHeight,
+		minScale: 1.0,
+		audioEnable: true
+	},
+	config);
+
+	this.minWidth = this.config.minWidth;
+	this.minHeight = this.config.minHeight;
+	this.minScale = this.config.minScale;
+	this.audioEnable = this.config.audioEnable;
+
 
 	// Initialize layers
 	$obj.find('.nf-layer').each(function() {
