@@ -9,6 +9,15 @@ http://opensource.org/licenses/mit-license.php
 
 
 (function( $ ) {
+	$.fn.getUrlArgs = function() {
+		var args = [];
+		var pair = location.search.substring(1).split('&');
+		for(var i=0; pair[i]; i++) {
+		    var kv = pair[i].split('=');
+		    args[kv[0]]=kv[1];
+		}
+		return args;
+	};
   $.fn.toggleVisibility = function() {
   	var v = this.css('visibility');
   	if (v == 'visible') {
@@ -1076,16 +1085,5 @@ nefuView.prototype = {
 			view.update();
 		});
 		return this;
-	},
-
-
-	getUrlArgs: function() {
-		var args = [];
-		var pair = location.search.substring(1).split('&');
-		for(var i=0; pair[i]; i++) {
-		    var kv = pair[i].split('=');
-		    args[kv[0]]=kv[1];
-		}
-		return args;
 	}
 };
