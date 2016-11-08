@@ -533,8 +533,8 @@ function nefuPreload(urls, cbProgress, cbFinish, cbError) {
 
 
 
-function nefuAutoPopup(view, config) {
-	this._view = view;
+function nefuAutoPopup(popupLayer, config) {
+	this._popupLayer = popupLayer;
 
 	this.config = $.extend({
 		default: {
@@ -619,7 +619,7 @@ nefuAutoPopup.prototype = {
 		text.y += (Math.random() * this.config.yRand) | 0;
 
 		// Say
-		this._lastPopup = this._view.say(text);
+		this._lastPopup = this._popupLayer.say(text);
 
 		// Set next
 		if (this.started == true && this._lastPopup.duration > 0) {
@@ -699,6 +699,141 @@ nefuChat.prototype = {
 
 
 
+function nefuPopupLayer(view, layer) {
+	this._view = view;
+	this._layer = layer;
+	this._popups = [];
+}
+nefuPopupLayer.prototype = {
+	say: function(config) {
+		config = $.extend({
+			text: '',
+			title: '',
+			x: 0,
+			y: 0,
+			direction: 'left',	// 'left', 'right', 'auto'
+			delay: 0,
+			duration: 'auto',	// 'auto', 0(infinity), integer
+			color: '1',
+			loud: false
+		}, 
+		config);
+
+		// Delay
+		if (config.delay > 0) {
+			var c = config;
+			var self = this;
+
+			setTimeout(function() {
+				c.delay = 0;
+				self.say(c);
+			}, config.delay);
+
+			return this;
+		}
+
+		// Find inactive popup
+		var popup = null;
+		for (var i=0; i<this._popups.length; i++) {
+			if (!this._popups[i].hasClass('nf-visible') && !this._popups[i].hasClass('nf-hide')) {
+				popup = this._popups[i];
+				break;
+			}
+		}
+
+		// Create a new popup if needed
+		if (popup == null) {
+			popup = $('<div class="nf-message"><span class="title"></span><span class="text"></span></div>');
+			this._popups.push(popup);
+			this._layer.obj.append(popup);
+			this._layer.controls.push(popup);
+
+			popup.hide = function() {
+				if (popup.durationTimer) {
+					clearTimeout(popup.durationTimer);
+					popup.durationTimer = null;
+					popup.duration = null;
+				}
+
+				if (popup.hasClass('nf-visible')) {
+					popup.on('animationend', function() {
+						popup.off('animationend')
+						 .removeClass('nf-hide');
+					});
+
+					popup.removeClass('nf-visible')
+					 .addClass('nf-hide');
+				}
+			};
+		}
+		
+		// Set text and title
+		popup.find('.text').text(config.text);
+		popup.find('.title').text(config.title);
+
+		// Set position
+		popup.data('pos-x', config.x / this._view.maxWidth)
+				 .data('pos-y', config.y / this._view.maxHeight);
+
+		// Set direction
+		var dir = config.direction;
+		popup.removeClass('left right')
+		     .addClass(dir)
+		     .data('origin-x', dir)
+		     .data('origin-y', 'bottom');
+
+		// Set color
+		popup.removeClass('color1 color2 color3 color4 color5 color6 color7 color8 color9');
+		popup.addClass('color' + config.color);
+
+		// Set loud
+		if (config.loud == true) {
+			popup.addClass('loud');
+		}
+		else {
+			popup.removeClass('loud');
+		}
+
+		// Calculate auto duration
+		var dur = config.duration;
+		if (dur == 'auto') {
+			dur = Math.max(2000, config.text.length * 100);	// ToDo: 
+		}
+		
+		// Set duration timer
+		if (dur > 0) {
+			popup.duration = dur;
+			popup.durationTimer = setTimeout(function(m) {
+				m.durationTimer = null;
+				m.duration = null;
+				m.hide();
+			}, 
+			dur, popup);
+		}
+		else {
+			popup.duration = null;
+			popup.durationTimer = null;
+		}
+
+		// Show
+		this._view.resize();	// ToDo: should resize only popup
+		popup.addClass('nf-visible');
+
+		return popup;
+	},
+
+	clear: function() {
+		// hide all popups
+		for (var i=0; i<this._popups.length; i++) {
+			if (this._popups[i].hasClass('nf-visible') || this._popups[i].hasClass('nf-hide')) {
+				this._popups[i].removeClass('nf-visible nf-hide');
+			}
+		}
+	},
+};
+
+
+
 
 function nefuView(wrapperElement, defaultSceneName) {
 	// Initialize members
@@ -714,7 +849,6 @@ function nefuView(wrapperElement, defaultSceneName) {
 	this.windows = [];
 	this.windowById = [];
 
-	this._popups = [];
 
 	var view = this;
 	var wrapper = $(wrapperElement);
@@ -740,6 +874,11 @@ function nefuView(wrapperElement, defaultSceneName) {
 		for (var i=0; i<layer.sceneNames.length; i++) {
 			view._ensureScene(layer.sceneNames[i]).layers.push(layer);
 		}
+
+		// Show layer
+		if ($(this).hasClass('visible')) {
+			layer.show();
+		}
 	});
 
 	// Initialize elements shown at specified scenes
@@ -763,13 +902,6 @@ function nefuView(wrapperElement, defaultSceneName) {
 			view.windowById[this.id] = wnd;
 		}
 	});
-
-	// Initialize popup layer
-	var popupLayerElm = $('<div class="nf-layer"></div>');
-	wrapper.append(popupLayerElm);
-	this._popupLayer = new nefuLayer(view, popupLayerElm);
-	this._popupLayer.show();
-	this.layers.push(this._popupLayer);
 
 	// Create cover
 	this.cover = $('<div class="nf-cover"></div>');
@@ -851,7 +983,7 @@ nefuView.prototype = {
 	},
 
 
-	fade: function(fadeColor, fadeDuration, callback) {
+	fade: function(fadeColor, fadeDuration, funcFadeOpening) {
 		if (!fadeDuration) { fadeDuration = 0; }
 
 		var view = this;
@@ -863,8 +995,8 @@ nefuView.prototype = {
 			setTimeout(function() {
 				cover.off('animationend');
 
-				if (callback) {
-					callback();
+				if (funcFadeOpening) {
+					funcFadeOpening();
 				}
 
 				setTimeout(function() {
@@ -887,7 +1019,7 @@ nefuView.prototype = {
 	},
 
 
-	changeScene: function(sceneName, fadeColor, fadeDuration) {
+	changeScene: function(sceneName, fadeColor, fadeDuration, funcFadeOpening) {
 		var prevScene = this.curScene;
 		var nextScene = this.scenes[sceneName];
 		var view = this;
@@ -900,12 +1032,11 @@ nefuView.prototype = {
 
 		// Fade
 		if (fadeColor) {
-			// hide popups before fade
-			this.clearPopups();
-
 			// Do fading
+			var opening = funcFadeOpening;
 			this.fade(fadeColor, fadeDuration, function() {
 				view.changeScene(name, false);
+				if (opening) { opening.call(view); }
 			});
 
 			return;
@@ -945,134 +1076,6 @@ nefuView.prototype = {
 			view.update();
 		});
 		return this;
-	},
-
-
-	say: function(config) {
-		config = $.extend({
-			text: '',
-			title: '',
-			x: 0,
-			y: 0,
-			direction: 'left',	// 'left', 'right', 'auto'
-			delay: 0,
-			duration: 'auto',	// 'auto', 0(infinity), integer
-			color: '1',
-			loud: false
-		}, 
-		config);
-
-		// Delay
-		if (config.delay > 0) {
-			var c = config;
-			var self = this;
-
-			setTimeout(function() {
-				c.delay = 0;
-				self.say(c);
-			}, config.delay);
-
-			return this;
-		}
-
-		// Find inactive popup
-		var popup = null;
-		for (var i=0; i<this._popups.length; i++) {
-			if (!this._popups[i].hasClass('nf-visible') && !this._popups[i].hasClass('nf-hide')) {
-				popup = this._popups[i];
-				break;
-			}
-		}
-
-		// Create a new popup if needed
-		if (popup == null) {
-			popup = $('<div class="nf-message"><span class="title"></span><span class="text"></span></div>');
-			this._popups.push(popup);
-			this._popupLayer.obj.append(popup);
-			this._popupLayer.controls.push(popup);
-
-			popup.hide = function() {
-				if (popup.durationTimer) {
-					clearTimeout(popup.durationTimer);
-					popup.durationTimer = null;
-					popup.duration = null;
-				}
-
-				if (popup.hasClass('nf-visible')) {
-					popup.on('animationend', function() {
-						popup.off('animationend')
-						 .removeClass('nf-hide');
-					});
-
-					popup.removeClass('nf-visible')
-					 .addClass('nf-hide');
-				}
-			};
-		}
-		
-		// Set text and title
-		popup.find('.text').text(config.text);
-		popup.find('.title').text(config.title);
-
-		// Set position
-		popup.data('pos-x', config.x / this.maxWidth)
-				 .data('pos-y', config.y / this.maxHeight);
-
-		// Set direction
-		var dir = config.direction;
-		popup.removeClass('left right')
-		     .addClass(dir)
-		     .data('origin-x', dir)
-		     .data('origin-y', 'bottom');
-
-		// Set color
-		popup.removeClass('color1 color2 color3 color4 color5 color6 color7 color8 color9');
-		popup.addClass('color' + config.color);
-
-		// Set loud
-		if (config.loud == true) {
-			popup.addClass('loud');
-		}
-		else {
-			popup.removeClass('loud');
-		}
-
-		// Calculate auto duration
-		var dur = config.duration;
-		if (dur == 'auto') {
-			dur = Math.max(2000, config.text.length * 100);	// ToDo: 
-		}
-		
-		// Set duration timer
-		if (dur > 0) {
-			popup.duration = dur;
-			popup.durationTimer = setTimeout(function(m) {
-				m.durationTimer = null;
-				m.duration = null;
-				m.hide();
-			}, 
-			dur, popup);
-		}
-		else {
-			popup.duration = null;
-			popup.durationTimer = null;
-		}
-
-		// Show
-		this.resize();	// ToDo: should resize only popup
-		popup.addClass('nf-visible');
-
-		return popup;
-	},
-
-
-	clearPopups: function() {
-		// hide all popups
-		for (var i=0; i<this._popups.length; i++) {
-			if (this._popups[i].hasClass('nf-visible') || this._popups[i].hasClass('nf-hide')) {
-				this._popups[i].removeClass('nf-visible nf-hide');
-			}
-		}
 	},
 
 
