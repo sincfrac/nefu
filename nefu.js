@@ -99,9 +99,8 @@ http://opensource.org/licenses/mit-license.php
 
 
 
-function nefuLayer(view, obj) {
+function nefuLayer(obj, maxWidth, maxHeight) {
 	this.obj = obj;
-	this.view = view;
 	this.controls = [];
 	this.audios = [];
 	this.onStart = null;
@@ -110,6 +109,15 @@ function nefuLayer(view, obj) {
 	this.visible = false;
 	this.audioLoaded = false;
 	var layer = this;
+
+	this.maxWidth = maxWidth;
+	this.maxHeight = maxHeight;
+
+	this.offsetLeft = 0;
+	this.offsetTop = 0;
+	this.width = maxWidth;
+	this.height = maxHeight;
+	this.scale = 1.0;
 
 	// Parse scene names
 	if (obj.data('scene')) {
@@ -131,24 +139,24 @@ function nefuLayer(view, obj) {
 
 		var x;
 		if (orgx == 'left') {
-			x = pos.left / view.maxWidth;
+			x = pos.left / maxWidth;
 		}
 		else if (orgx == 'right') {
-			x = (pos.left + width) / view.maxWidth;
+			x = (pos.left + width) / maxWidth;
 		}
 		else {
-			x = (pos.left+width /2) / view.maxWidth;
+			x = (pos.left+width /2) / maxWidth;
 		}
 
 		var y;
 		if (orgy == 'top') {
-			y = pos.top / view.maxHeight;
+			y = pos.top / maxHeight;
 		}
 		else if (orgy == 'bottom') {
-			y = (pos.top + height) / view.maxHeight;
+			y = (pos.top + height) / maxHeight;
 		}
 		else {
-			y = (pos.top +height/2) / view.maxHeight;
+			y = (pos.top +height/2) / maxHeight;
 		}
 
 		elm.data('pos-x', x)
@@ -221,9 +229,6 @@ nefuLayer.prototype = {
 			eval(this.onStart);
 		}
 
-		// Play audio
-		this.playAudio();
-
 		// Set property
 		this.visible = true;
 
@@ -247,9 +252,6 @@ nefuLayer.prototype = {
 		if (this.onEnd) {
 			eval(this.onEnd);
 		}
-
-		// Stop audio
-		this.stopAudio();
 
 		// Set property
 		this.visible = false;
@@ -284,52 +286,58 @@ nefuLayer.prototype = {
 	//
 	// Resize controls
 	//
-	_resize: function(left, top, width, height, r) {
+	_resize: function(left, top, width, height, scale) {
+		this.offsetLeft = left;
+		this.offsetTop = top;
+		this.width = width;
+		this.height = height;
+		this.scale = scale;
+
 		for (var i=0; i<this.controls.length; i++) {
-			var elm = this.controls[i];
-
-			//Resize image
-			if (elm.hasClass('nf-image')) {
-				elm.css('transform', 'scale('+r+')');
-			}
-
-			var orgx = elm.data('origin-x');
-			var orgy = elm.data('origin-y');
-
-			var eWidth  = elm.outerWidth();
-			var eHeight = elm.outerHeight();
-
-			var x;
-			if (orgx == 'left') {
-				x = 0;
-			}
-			else if (orgx == 'right') {
-				x = eWidth;
-			}
-			else {
-				x = eWidth / 2;
-			}
-
-			var y;
-			if (orgy == 'top') {
-				y = 0;
-			}
-			else if (orgy == 'bottom') {
-				y = eHeight;
-			}
-			else {
-				y = eHeight / 2;
-			}
-
-			// Move controls
-			elm.css('left', -left + elm.data('pos-x')*width  - x)
-			   .css('top',  -top  + elm.data('pos-y')*height - y);
+			this._resizeControl(this.controls[i]);
 		}
 	},
 
-	loadAudio: function() {
-		if (!this.view.audioEnable) { return; }
+	_resizeControl: function($elm) {
+		//Resize image
+		if ($elm.hasClass('nf-image')) {
+			$elm.css('transform', 'scale('+this.scale+')');
+		}
 
+		var orgx = $elm.data('origin-x');
+		var orgy = $elm.data('origin-y');
+
+		var eWidth  = $elm.outerWidth();
+		var eHeight = $elm.outerHeight();
+
+		var x;
+		if (orgx == 'left') {
+			x = 0;
+		}
+		else if (orgx == 'right') {
+			x = eWidth;
+		}
+		else {
+			x = eWidth / 2;
+		}
+
+		var y;
+		if (orgy == 'top') {
+			y = 0;
+		}
+		else if (orgy == 'bottom') {
+			y = eHeight;
+		}
+		else {
+			y = eHeight / 2;
+		}
+
+		// Move controls
+		$elm.css('left', -this.offsetLeft + $elm.data('pos-x')*this.width  - x)
+		    .css('top',  -this.offsetTop  + $elm.data('pos-y')*this.height - y);
+	},
+
+	loadAudio: function() {
 		for (var i=0; i<this.audios.length; i++) {
 			this.audios[i].element.load();
 		}
@@ -339,8 +347,6 @@ nefuLayer.prototype = {
 	},
 
 	playAudio: function() {
-		if (!this.view.audioEnable) { return; }
-
 		if (!this.audioLoaded) {
 			this.loadAudio();
 		}
@@ -361,8 +367,6 @@ nefuLayer.prototype = {
 	},
 
 	stopAudio: function() {
-		if (!this.view.audioEnable) { return; }
-
 		for (var i=0; i<this.audios.length; i++) {
 			var audio = this.audios[i];
 			if (!audio.element.ended) {
@@ -417,6 +421,18 @@ nefuScene.prototype = {
 	_loadAudio: function() {
 		for (var i=0; i<this.layers.length; i++) {
 			this.layers[i].loadAudio();
+		}
+	},
+
+	_playAudio: function() {
+		for (var i=0; i<this.layers.length; i++) {
+			this.layers[i].playAudio();
+		}
+	},
+
+	_stopAudio: function() {
+		for (var i=0; i<this.layers.length; i++) {
+			this.layers[i].stopAudio();
 		}
 	},
 
@@ -820,8 +836,8 @@ nefuPopupLayer.prototype = {
 		popup.find('.title').text(config.title);
 
 		// Set position
-		popup.data('pos-x', config.x / this._layer.view.maxWidth)
-				 .data('pos-y', config.y / this._layer.view.maxHeight);
+		popup.data('pos-x', config.x / this._layer.maxWidth)
+				 .data('pos-y', config.y / this._layer.maxHeight);
 
 		// Set direction
 		var dir = config.direction;
@@ -864,7 +880,7 @@ nefuPopupLayer.prototype = {
 		}
 
 		// Show
-		this._layer.view.resize();	// ToDo: should resize only popup
+		this._layer._resizeControl(popup);
 		popup.addClass('nf-visible');
 
 		return popup;
@@ -922,7 +938,7 @@ function nefuView(viewElement, config) {
 	// Initialize layers
 	$obj.find('.nf-layer').each(function() {
 		// Create layer
-		var layer = new nefuLayer(view, $(this));
+		var layer = new nefuLayer($(this), view.maxWidth, view.maxHeight);
 
 		// Register layer
 		view.layers.push(layer);
@@ -1089,11 +1105,17 @@ nefuView.prototype = {
 		// Hide scene
 		if (prevScene) {
 			prevScene._hide(nextScene, this.audioEnable);
+			if (this.audioEnable) {
+				prevScene._stopAudio();
+			}
 		}
 
 		// Show scene
 		nextScene._show(this.audioEnable);
-		
+		if (this.audioEnable) {
+			nextScene._playAudio();
+		}
+
 		// Resize
 		this.resize();
 
