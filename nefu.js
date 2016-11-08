@@ -686,26 +686,26 @@ nefuAutoPopup.prototype = {
 
 
 
-function nefuChat(view, cbInput) {
+function nefuChat(view, funcInput) {
 	// Create chat area
-	var chat = $('<div class="nf-chat"><input class="text" type="text" /><div class="send loc-say">発言</div></div>');
-	view.wrapper.append(chat);
-	this.obj = chat;
+	var $chat = $('<div class="nf-chat"><input class="text" type="text" /><div class="send loc-say">発言</div></div>');
+	view.$obj.append($chat);
+	this.$obj = $chat;
 
-	this.cbInput = cbInput;
+	this._funcInput = funcInput;
 	var self = this;
 
 	// Set handlers
-	var chatInput = chat.find('.text');
-	chatInput.keypress(function(ev) {
+	var $chatInput = $chat.find('.text');
+	$chatInput.keypress(function(ev) {
 		if (ev.keyCode && ev.keyCode === 13) {
-			self.cbInput($(this).val());
+			self._funcInput($(this).val());
 			$(this).val('');
 		}
 	});
-	chat.find('.send').click(function() {
-		self.cbInput(chatInput.val());
-		chatInput.val('');
+	$chat.find('.send').click(function() {
+		self.cbInput($chatInput.val());
+		$chatInput.val('');
 	});
 }
 nefuChat.prototype = {
@@ -851,7 +851,7 @@ nefuPopupLayer.prototype = {
 
 
 
-function nefuView(wrapperElement, defaultSceneName) {
+function nefuView(viewElement, config) {
 	// Initialize members
 	this.audioEnable = true;
 	this.curWidth = 0;
@@ -865,20 +865,28 @@ function nefuView(wrapperElement, defaultSceneName) {
 	this.windows = [];
 	this.windowById = [];
 
-
 	var view = this;
-	var wrapper = $(wrapperElement);
-	this.wrapper = wrapper;
+
+	var $obj = $(viewElement);
+	this.$obj = $obj;
+
+	// Get config
+	this.config = $.extend({
+		startScene: 'default',
+		fullSize: false
+	},
+	config);
 
 	// Get view parameters
-	this.maxWidth  = wrapper.width();
-	this.maxHeight = wrapper.height();
-	this.minWidth  = wrapper.data('min-width');
-	this.minHeight = wrapper.data('min-height');
-	this.minScale  = wrapper.data('min-scale');
+	this.maxWidth  = $obj.width();
+	this.maxHeight = $obj.height();
+	this.minWidth  = $obj.data('min-width');
+	this.minHeight = $obj.data('min-height');
+	this.minScale  = $obj.data('min-scale');
+	this.defaultSceneName = $obj.data('default-scene') || 'default';
 
 	// Initialize layers
-	wrapper.find('.nf-layer').each(function() {
+	$obj.find('.nf-layer').each(function() {
 		// Create layer
 		var layer = new nefuLayer(view, $(this));
 
@@ -898,7 +906,7 @@ function nefuView(wrapperElement, defaultSceneName) {
 	});
 
 	// Initialize elements shown at specified scenes
-	wrapper.find('[data-visible-scenes]').each(function(idx) {
+	$obj.find('[data-visible-scenes]').each(function(idx) {
 		var self = $(this);
 		var snames = self.data('visible-scenes').split(' ');
 		for (var i=0; i<snames.length; i++) {
@@ -908,7 +916,7 @@ function nefuView(wrapperElement, defaultSceneName) {
 	});
 
 	// Initialize windows
-	wrapper.find('.nf-window').each(function() {
+	$obj.find('.nf-window').each(function() {
 		// Create window
 		var wnd = new nefuWindow(view, $(this));
 
@@ -921,21 +929,21 @@ function nefuView(wrapperElement, defaultSceneName) {
 
 	// Create cover
 	this.cover = $('<div class="nf-cover"></div>');
-	wrapper.append(this.cover);
+	$obj.append(this.cover);
 
 	// Register resize handler, and do initial resize
-	$(window).resize(function() {
-		view.resize($(window).width(), $(window).height());
-	});
-	this.resize($(window).width(), $(window).height());
+	if (this.config.fullSize == true) {
+		var funcResize = function() {
+			var w = $(window).width(),
+					h = $(window).height();
+			view.resize(w, h);
+		};
+		$(window).resize(funcResize);
+		funcResize();
+	}
 
 	// Go to default scene
-	if (defaultSceneName) {
-		this.changeScene(defaultSceneName);
-	}
-	else {
-		this.changeScene('default');
-	}
+	this.changeScene(this.config.startScene);
 }
 nefuView.prototype = {
 	_ensureScene: function(sceneName) {
@@ -973,16 +981,17 @@ nefuView.prototype = {
 		this.controlOffsetLeft = eLeft;
 		this.controlOffsetTop  = eTop;
 
-		// Adjust wrapper overflow
-		if (wHeight < rMinHeight || wWidth < rMinWidth) {
-			$('body').css('overflow', 'auto');
-		} else {
-			$('body').css('overflow', 'hidden');
+		// Fix vertical position
+		if (wHeight < rMinHeight) {
+			this.$obj.css({'margin-top': 0, 'margin-bottom': 0});
+		}
+		else {
+			this.$obj.css({'margin-top': '', 'margin-bottom': ''});
 		}
 
-		// Resize wrapper
-		this.wrapper.width(vWidth)
-		            .height(vHeight);
+		// Resize view
+		this.$obj.width(vWidth)
+		         .height(vHeight);
 
 		// Resize visible layers
 		for (var i=0; i<this.layers.length; i++) {
