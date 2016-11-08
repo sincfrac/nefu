@@ -746,14 +746,11 @@ nefuChat.prototype = {
 
 
 
-function nefuPopupLayer(view, layer) {
-	this._view = view;
+function nefuPopupLayer(layer, config) {
 	this._layer = layer;
 	this._popups = [];
-}
-nefuPopupLayer.prototype = {
-	say: function(config) {
-		config = $.extend({
+	this._config = $.extend({
+		default: {
 			text: '',
 			title: '',
 			x: 0,
@@ -763,8 +760,12 @@ nefuPopupLayer.prototype = {
 			duration: 'auto',	// 'auto', 0(infinity), integer
 			color: '1',
 			loud: false
-		}, 
-		config);
+		}
+	}, config);
+}
+nefuPopupLayer.prototype = {
+	say: function(cfg) {
+		config = $.extend(this._config.default, cfg);
 
 		// Delay
 		if (config.delay > 0) {
@@ -819,8 +820,8 @@ nefuPopupLayer.prototype = {
 		popup.find('.title').text(config.title);
 
 		// Set position
-		popup.data('pos-x', config.x / this._view.maxWidth)
-				 .data('pos-y', config.y / this._view.maxHeight);
+		popup.data('pos-x', config.x / this._layer.view.maxWidth)
+				 .data('pos-y', config.y / this._layer.view.maxHeight);
 
 		// Set direction
 		var dir = config.direction;
@@ -863,7 +864,7 @@ nefuPopupLayer.prototype = {
 		}
 
 		// Show
-		this._view.resize();	// ToDo: should resize only popup
+		this._layer.view.resize();	// ToDo: should resize only popup
 		popup.addClass('nf-visible');
 
 		return popup;
