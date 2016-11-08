@@ -255,9 +255,15 @@ nefuLayer.prototype = {
 	//
 	// Resize controls
 	//
-	_resize: function(left, top, width, height) {
+	_resize: function(left, top, width, height, r) {
 		for (var i=0; i<this.controls.length; i++) {
 			var elm = this.controls[i];
+
+			//Resize image
+			if (elm.hasClass('nf-image')) {
+				elm.css('transform', 'scale('+r+')');
+			}
+
 			var orgx = elm.data('origin-x');
 			var orgy = elm.data('origin-y');
 
@@ -286,6 +292,7 @@ nefuLayer.prototype = {
 				y = eHeight / 2;
 			}
 
+			// Move controls
 			elm.css('left', -left + elm.data('pos-x')*width  - x)
 			   .css('top',  -top  + elm.data('pos-y')*height - y);
 		}
@@ -977,16 +984,10 @@ nefuView.prototype = {
 		this.wrapper.width(vWidth)
 		            .height(vHeight);
 
-		// Resize images
-		this.wrapper.find('.nf-image')
-								.css('transform', 'scale('+r+')')
-		            .css('left', -eLeft)
-		            .css('top',  -eTop);
-
 		// Resize visible layers
 		for (var i=0; i<this.layers.length; i++) {
 			if (this.layers[i].visible) {
-				this.layers[i]._resize(eLeft, eTop, rWidth, rHeight);
+				this.layers[i]._resize(eLeft, eTop, rWidth, rHeight, r);
 			}
 		}
 	},
