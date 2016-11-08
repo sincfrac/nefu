@@ -18,6 +18,7 @@ http://opensource.org/licenses/mit-license.php
 		}
 		return args;
 	};
+
   $.fn.toggleVisibility = function() {
   	var v = this.css('visibility');
   	if (v == 'visible') {
@@ -28,16 +29,44 @@ http://opensource.org/licenses/mit-license.php
   	}
   	return this;
   };
-  $.fn.showControl = function() {
-	this.addClass('nf-visible');
-	var duration = this.data('visible-duration');
-	if (duration) {
-		setTimeout(function(e) {
-			e.removeClass('nf-visible');
-		}, duration, this);
-	}
-	return this;
+
+  $.fn.nfShow = function() {
+		this.addClass('nf-visible');
+		var duration = this.data('visible-duration');
+		if (duration) {
+			setTimeout(function(e) {
+				e.removeClass('nf-visible');
+			}, duration, this);
+		}
+		return this;
   };
+
+  $.fn.nfHide = function() {
+  	this.removeClass('nf-visible');
+  	return this;
+  };
+
+  $.fn.nfVisible = function(val) {
+  	if (val == true) {
+  		return this.nfShow();
+  	}
+  	else if (val == false) {
+  		return this.nfHide();
+  	}
+  	else {
+  		return this.hasClass('nf-visible');
+  	}
+  };
+
+  $.fn.nfToggle = function() {
+  	if (this.hasClass('nf-visible')) {
+  		return this.nfHide();
+  	}
+  	else {
+  		return this.nfShow();
+  	}
+  }
+
   $.fn.visibility = function(val) {
   	if (val == true) {
   		this.css('visibility', 'visible');
@@ -174,12 +203,12 @@ nefuLayer.prototype = {
 			var elm = $(this);
 			var delay = elm.data('visible-delay');
 			if (delay == 0) {
-				elm.showControl();
+				elm.nfShow();
 			}
 			else {
 				elm.removeClass('nf-visible');
 				setTimeout(function(e) {
-					e.showControl();
+					e.nfShow();
 				}, delay, elm);
 			}
 		});
@@ -404,92 +433,94 @@ nefuScene.prototype = {
 
 
 
+/*
+	nfWindow
+*/
+(function( $ ) {
+	var methods = {
+		// Initialize
+		init: function(opts) {
+			return this.each(function() {
+				var $this = $(this);
 
+				var options = $.extend({
+					view: null
+				}, opts);
 
+				// Check initialized and store options
+				if ($this.data('nfWindow')) { return; }
+				$this.data('nfWindow', options);
 
-function nefuWindow(view, obj) {
-	this.obj = obj;
-	this.view = view;
+				// Register close button
+				$this.find('.close').click(function() {
+					$this.removeClass('nf-visible');
+				});
 
-	var wnd = this;
+				// Register move handlers
+				$this.find('.title').mousedown(function(downev) {
+					var pos = $this.position();
+					$(document).on('mousemove.nefu', function(ev) {
+						var nposX = pos.left + ev.pageX-downev.pageX;
+						var nposY = pos.top  + ev.pageY-downev.pageY;
+						
+						$this.css('left', nposX)
+						   	 .css('top',  nposY);
 
-	// Register close button
-	obj.find('.close').click(function() {
-		wnd.obj.removeClass('nf-visible');
-	});
+						var view = $this.data('nfWindow').view;
+						if (view) {
+							var orgx = $this.data('origin-x');
+							var orgy = $this.data('origin-y');
 
-	// Initialize titlebars, moving
-	obj.find('.title').mousedown(function(downev) {
-		var pos = wnd.obj.position();
-		$(document).on('mousemove.nefu', function(ev) {
-			var nposX = pos.left + ev.pageX-downev.pageX;
-			var nposY = pos.top  + ev.pageY-downev.pageY;
-			
-			wnd.obj.css('left', nposX)
-			   		 .css('top',  nposY);
+							var width  = $this.outerWidth(true);
+							var height = $this.outerHeight(true);
 
-			var orgx = wnd.obj.data('origin-x');
-			var orgy = wnd.obj.data('origin-y');
+							var mWidth  = view.maxWidth  * view.curScale;
+							var mHeight = view.maxHeight * view.curScale;
 
-			var width  = wnd.obj.outerWidth(true);
-			var height = wnd.obj.outerHeight(true);
+							var x;
+							if (orgx == 'left') {
+								x = (nposX + view.controlOffsetLeft + 0) / mWidth;
+							}
+							else if (orgx == 'right') {
+								x = (nposX + view.controlOffsetLeft + width) / mWidth;
+							}
+							else {
+								x = (nposX + view.controlOffsetLeft + width /2) / mWidth;
+							}
 
-			var mWidth  = view.maxWidth  * view.curScale;
-			var mHeight = view.maxHeight * view.curScale;
+							var y;
+							if (orgy == 'top') {
+								y = (nposY + view.controlOffsetTop + 0) / mHeight;
+							}
+							else if (orgy == 'bottom') {
+								y = (nposY + view.controlOffsetTop + height) / mHeight;
+							}
+							else {
+								y = (nposY + view.controlOffsetTop + height/2) / mHeight;
+							}
 
-			var x;
-			if (orgx == 'left') {
-				x = (nposX + view.controlOffsetLeft + 0) / mWidth;
-			}
-			else if (orgx == 'right') {
-				x = (nposX + view.controlOffsetLeft + width) / mWidth;
-			}
-			else {
-				x = (nposX + view.controlOffsetLeft + width /2) / mWidth;
-			}
+							$this.data('pos-x', x)
+							     .data('pos-y', y);
+						}
+					});
+				}).mouseup(function() {
+					$(document).off('mousemove.nefu');
+				});
 
-			var y;
-			if (orgy == 'top') {
-				y = (nposY + view.controlOffsetTop + 0) / mHeight;
-			}
-			else if (orgy == 'bottom') {
-				y = (nposY + view.controlOffsetTop + height) / mHeight;
-			}
-			else {
-				y = (nposY + view.controlOffsetTop + height/2) / mHeight;
-			}
-
-			wnd.obj.data('pos-x', x)
-			       .data('pos-y', y);
-		});
-	}).mouseup(function() {
-		$(document).off('mousemove.nefu');
-	});
-
-}
-nefuWindow.prototype = {
-	show: function() {
-		this.obj.addClass('nf-visible');
-	},
-
-	hide: function() {
-		this.obj.removeClass('nf-visible');
-	},
-
-	visible: function() {
-		return this.obj.hasClass('nf-visible');
-	},
-
-	toggle: function() {
-		if (this.visible) {
-			this.hide();
+			});
 		}
-		else {
-			this.show();
-		}
-	}
-};
+	};
 
+	$.fn.nfWindow = function(method) {
+    if ( methods[method] ) {
+      return methods[method].apply( this, Array.prototype.slice.call( arguments, 1 ));
+    } else if ( typeof method === 'object' || ! method ) {
+      return methods.init.apply( this, arguments );
+    } else {
+      $.error( 'Method ' +  method + ' does not exist on jQuery.tooltip' );
+    }
+	};
+})( jQuery );
 
 
 
@@ -861,9 +892,6 @@ function nefuView(viewElement, config) {
 	this.layers = [];
 	this.layerById = [];
 
-	this.windows = [];
-	this.windowById = [];
-
 	var view = this;
 
 	var $obj = $(viewElement);
@@ -921,16 +949,7 @@ function nefuView(viewElement, config) {
 	});
 
 	// Initialize windows
-	$obj.find('.nf-window').each(function() {
-		// Create window
-		var wnd = new nefuWindow(view, $(this));
-
-		// Register window
-		view.windows.push(wnd);
-		if (this.id) {
-			view.windowById[this.id] = wnd;
-		}
-	});
+	$obj.find('.nf-window').nfWindow({view: view});
 
 	// Create cover
 	this.cover = $('<div class="nf-cover"></div>');
