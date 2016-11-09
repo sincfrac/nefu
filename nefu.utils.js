@@ -214,4 +214,18 @@ http://opensource.org/licenses/mit-license.php
 		};
 	};
 
+	$.delayApply = function(caller, func, delay) {
+		if (delay == 0) {
+			func.apply(caller);
+			return null;
+		}
+		else {
+			var _func = func;
+			var _caller = caller;
+			return setTimeout(function() {
+				_func.apply(_caller);
+			}, delay);
+		}
+	};
+
 })( jQuery );
