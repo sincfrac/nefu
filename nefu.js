@@ -65,7 +65,66 @@ http://opensource.org/licenses/mit-license.php
   	else {
   		return this.nfShow();
   	}
-  }
+  };
+
+  var _nfPositionProp = function($elm, prop, val, max, force) {
+		var cur = $elm[0].style[prop] || $elm.css(prop);
+		if (cur) {
+			if (cur.endsWith('px')) {
+				$elm.css(prop, val+'px');
+			}
+			else if (cur.endsWith('%')) {
+				$elm.css(prop, (val/max*100)+'%');
+			}
+			return true;
+		} else if (force) {
+			$elm.css(prop, val+'px');
+			return true;
+		}
+		return false;
+  };
+
+  $.fn.nfPosition = function(left, top) {
+  	return this.each(function() {
+  		var $this = $(this);
+
+			var width = $this.outerWidth(true),
+					height = $this.outerHeight(true);
+			var parWidth = $this.offsetParent().width(),
+					parHeight = $this.offsetParent().height();
+
+			var right  = parWidth - (left + width);
+			var bottom = parHeight - (top + height);
+
+			if (!_nfPositionProp($this, 'left', left, parWidth) &&
+					!_nfPositionProp($this, 'right', right, parWidth)) {
+				_nfPositionProp($this, 'left', left, parWidth, true);
+			}
+			if (!_nfPositionProp($this, 'top', top, parHeight) &&
+					!_nfPositionProp($this, 'bottom', bottom, parHeight)) {
+				_nfPositionProp($this, 'top', top, parHeight, true);
+			}
+  	});
+  };
+
+	var convertRelativeProp = function($elm, prop, max) {
+		var val = $elm[0].style[prop] || $elm.css(prop);
+		if (!val) { return; }
+		if (val.endsWith('px')) {
+			var rel = (parseInt(val) / max) * 100;
+			$elm.css(prop, rel+'%');
+		}
+	};
+
+  $.fn.convertPositionRelative = function(width, height) {
+		return this.each(function() {
+			var $elm = $(this);
+			convertRelativeProp($elm, 'left', width);
+			convertRelativeProp($elm, 'right', width);
+			convertRelativeProp($elm, 'top', height);
+			convertRelativeProp($elm, 'bottom', height);
+		});
+  };
 
   $.fn.visibility = function(val) {
   	if (val == true) {
@@ -91,6 +150,56 @@ http://opensource.org/licenses/mit-license.php
   $.sample = function(arr) {
   	return arr[Math.floor(Math.random()*arr.length)];
   };
+
+  $.preload = function(urls, cbProgress, cbFinish, cbError) {
+		// Start preloading resources
+		var preloadNum = urls.length;
+
+		function getExtension(filename) {
+			var ss = filename.split('.');
+			return ss[ss.length-1].toLowerCase();
+		}
+
+		function loadImageNext(arr) {
+			if (arr.length == 0) {
+				if (cbFinish) { cbFinish(); }
+				return;
+			}
+			if (cbProgress) {
+				cbProgress(1 - arr.length / preloadNum);
+			}
+			
+			var src = arr.pop();
+			var ext = getExtension(src);
+
+			if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
+				var tmp = new Image();
+				tmp.onload = function() {
+					loadImageNext(arr);
+				};
+				tmp.onerror = function() {
+					if (cbError) { cbError(); }
+				};
+				tmp.src = src;
+			}
+			else if (ext == 'mp3') {
+				loadImageNext(arr);
+				/*var tmp = new Audio();
+				tmp.autoplay = false;
+				tmp.onloadeddata = function() {
+					loadImageNext(arr);
+				};
+				tmp.onerror = function() {
+					if (config.preloadError) { config.preloadError(); }
+				};
+				tmp.src = src;
+				tmp.load();*/
+			}
+		}
+
+		loadImageNext(urls);
+	};
+
 })( jQuery );
 
 
@@ -99,9 +208,8 @@ http://opensource.org/licenses/mit-license.php
 
 
 
-function nefuLayer(obj, maxWidth, maxHeight) {
+function nefuLayer(obj) {
 	this.obj = obj;
-	this.controls = [];
 	this.audios = [];
 	this.onStart = null;
 	this.onEnd = null;
@@ -110,64 +218,12 @@ function nefuLayer(obj, maxWidth, maxHeight) {
 	this.audioLoaded = false;
 	var layer = this;
 
-	this.maxWidth = maxWidth;
-	this.maxHeight = maxHeight;
-
-	this.offsetLeft = 0;
-	this.offsetTop = 0;
-	this.width = maxWidth;
-	this.height = maxHeight;
-	this.scale = 1.0;
-
 	// Parse scene names
 	if (obj.data('scene')) {
 		this.sceneNames = obj.data('scene').split(' ');
 	} else {
 		this.sceneNames = [];
 	}
-
-	// Register movable controls
-	obj.children().each(function() {
-		var elm = $(this);
-		if (elm.hasClass('static')) return;
-
-		var orgx = elm.data('origin-x');
-		var orgy = elm.data('origin-y');
-		var pos = elm.position();
-		var width = elm.outerWidth(true);
-		var height = elm.outerHeight(true);
-
-		var x;
-		if (orgx == 'left') {
-			x = pos.left / maxWidth;
-		}
-		else if (orgx == 'right') {
-			x = (pos.left + width) / maxWidth;
-		}
-		else {
-			x = (pos.left+width /2) / maxWidth;
-		}
-
-		var y;
-		if (orgy == 'top') {
-			y = pos.top / maxHeight;
-		}
-		else if (orgy == 'bottom') {
-			y = (pos.top + height) / maxHeight;
-		}
-		else {
-			y = (pos.top +height/2) / maxHeight;
-		}
-
-		elm.data('pos-x', x)
-		   .data('pos-y', y)
-		   .css('left','')
-		   .css('right','')
-		   .css('top','')
-		   .css('bottom','');
-
-		layer.controls.push(elm);
-	});
 
 	// Register audio tags
 	obj.find('audio').each(function() {
@@ -281,60 +337,6 @@ nefuLayer.prototype = {
 		}
 
 		return this;
-	},
-
-	//
-	// Resize controls
-	//
-	_resize: function(left, top, width, height, scale) {
-		this.offsetLeft = left;
-		this.offsetTop = top;
-		this.width = width;
-		this.height = height;
-		this.scale = scale;
-
-		for (var i=0; i<this.controls.length; i++) {
-			this._resizeControl(this.controls[i]);
-		}
-	},
-
-	_resizeControl: function($elm) {
-		//Resize image
-		if ($elm.hasClass('nf-image')) {
-			$elm.css('transform', 'scale('+this.scale+')');
-		}
-
-		var orgx = $elm.data('origin-x');
-		var orgy = $elm.data('origin-y');
-
-		var eWidth  = $elm.outerWidth();
-		var eHeight = $elm.outerHeight();
-
-		var x;
-		if (orgx == 'left') {
-			x = 0;
-		}
-		else if (orgx == 'right') {
-			x = eWidth;
-		}
-		else {
-			x = eWidth / 2;
-		}
-
-		var y;
-		if (orgy == 'top') {
-			y = 0;
-		}
-		else if (orgy == 'bottom') {
-			y = eHeight;
-		}
-		else {
-			y = eHeight / 2;
-		}
-
-		// Move controls
-		$elm.css('left', -this.offsetLeft + $elm.data('pos-x')*this.width  - x)
-		    .css('top',  -this.offsetTop  + $elm.data('pos-y')*this.height - y);
 	},
 
 	loadAudio: function() {
@@ -474,50 +476,12 @@ nefuScene.prototype = {
 
 				// Register move handlers
 				$this.find('.title').mousedown(function(downev) {
-					var pos = $this.position();
+					var pos  = $this.position();
+
 					$(document).on('mousemove.nefu', function(ev) {
-						var nposX = pos.left + ev.pageX-downev.pageX;
-						var nposY = pos.top  + ev.pageY-downev.pageY;
-						
-						$this.css('left', nposX)
-						   	 .css('top',  nposY);
-
-						var view = $this.data('nfWindow').view;
-						if (view) {
-							var orgx = $this.data('origin-x');
-							var orgy = $this.data('origin-y');
-
-							var width  = $this.outerWidth(true);
-							var height = $this.outerHeight(true);
-
-							var mWidth  = view.maxWidth  * view.curScale;
-							var mHeight = view.maxHeight * view.curScale;
-
-							var x;
-							if (orgx == 'left') {
-								x = (nposX + view.controlOffsetLeft + 0) / mWidth;
-							}
-							else if (orgx == 'right') {
-								x = (nposX + view.controlOffsetLeft + width) / mWidth;
-							}
-							else {
-								x = (nposX + view.controlOffsetLeft + width /2) / mWidth;
-							}
-
-							var y;
-							if (orgy == 'top') {
-								y = (nposY + view.controlOffsetTop + 0) / mHeight;
-							}
-							else if (orgy == 'bottom') {
-								y = (nposY + view.controlOffsetTop + height) / mHeight;
-							}
-							else {
-								y = (nposY + view.controlOffsetTop + height/2) / mHeight;
-							}
-
-							$this.data('pos-x', x)
-							     .data('pos-y', y);
-						}
+						var nleft   = pos.left + ev.pageX - downev.pageX;
+						var ntop    = pos.top  + ev.pageY - downev.pageY;
+						$this.nfPosition(nleft, ntop);
 					});
 				}).mouseup(function() {
 					$(document).off('mousemove.nefu');
@@ -533,7 +497,7 @@ nefuScene.prototype = {
     } else if ( typeof method === 'object' || ! method ) {
       return methods.init.apply( this, arguments );
     } else {
-      $.error( 'Method ' +  method + ' does not exist on jQuery.tooltip' );
+      $.error( 'Method ' +  method + ' does not exist on jQuery.nfWindow' );
     }
 	};
 })( jQuery );
@@ -542,54 +506,7 @@ nefuScene.prototype = {
 
 
 
-function nefuPreload(urls, cbProgress, cbFinish, cbError) {
-		// Start preloading resources
-		var preloadNum = urls.length;
 
-		function getExtension(filename) {
-			var ss = filename.split('.');
-			return ss[ss.length-1].toLowerCase();
-		}
-
-		function loadImageNext(arr) {
-			if (arr.length == 0) {
-				if (cbFinish) { cbFinish(); }
-				return;
-			}
-			if (cbProgress) {
-				cbProgress(1 - arr.length / preloadNum);
-			}
-			
-			var src = arr.pop();
-			var ext = getExtension(src);
-
-			if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
-				var tmp = new Image();
-				tmp.onload = function() {
-					loadImageNext(arr);
-				};
-				tmp.onerror = function() {
-					if (cbError) { cbError(); }
-				};
-				tmp.src = src;
-			}
-			else if (ext == 'mp3') {
-				loadImageNext(arr);
-				/*var tmp = new Audio();
-				tmp.autoplay = false;
-				tmp.onloadeddata = function() {
-					loadImageNext(arr);
-				};
-				tmp.onerror = function() {
-					if (config.preloadError) { config.preloadError(); }
-				};
-				tmp.src = src;
-				tmp.load();*/
-			}
-		}
-
-		loadImageNext(urls);
-}
 
 
 
@@ -600,9 +517,7 @@ function nefuAutoPopup(popupLayer, config) {
 	this._popupLayer = popupLayer;
 
 	this.config = $.extend({
-		default: {
-			x:0, y:0
-		},
+		default: {},
 		minRest: 1000,
 		maxRest: 3000,
 		shuffle: true,
@@ -678,8 +593,8 @@ nefuAutoPopup.prototype = {
 		text = $.extend({}, this.config.default, text);
 
 		// Set position
-		text.x += (Math.random() * this.config.xRand) | 0;
-		text.y += (Math.random() * this.config.yRand) | 0;
+		//text.left += (Math.random() * this.config.xRand) | 0;
+		//text.top  += (Math.random() * this.config.yRand) | 0;
 
 		// Say
 		this._lastPopup = this._popupLayer.say(text);
@@ -762,15 +677,19 @@ nefuChat.prototype = {
 
 
 
-function nefuPopupLayer(layer, config) {
+
+
+function nefuPopupManager(layer, config) {
 	this._layer = layer;
 	this._popups = [];
 	this._config = $.extend({
 		default: {
 			text: '',
 			title: '',
-			x: 0,
-			y: 0,
+			left: 0,
+			top: 0,
+			right: null,
+			botton: null,
 			direction: 'left',	// 'left', 'right', 'auto'
 			delay: 0,
 			duration: 'auto',	// 'auto', 0(infinity), integer
@@ -779,7 +698,7 @@ function nefuPopupLayer(layer, config) {
 		}
 	}, config);
 }
-nefuPopupLayer.prototype = {
+nefuPopupManager.prototype = {
 	say: function(cfg) {
 		config = $.extend(this._config.default, cfg);
 
@@ -810,7 +729,6 @@ nefuPopupLayer.prototype = {
 			popup = $('<div class="nf-message"><span class="title"></span><span class="text"></span></div>');
 			this._popups.push(popup);
 			this._layer.obj.append(popup);
-			this._layer.controls.push(popup);
 
 			popup.hide = function() {
 				if (popup.durationTimer) {
@@ -836,15 +754,23 @@ nefuPopupLayer.prototype = {
 		popup.find('.title').text(config.title);
 
 		// Set position
-		popup.data('pos-x', config.x / this._layer.maxWidth)
-				 .data('pos-y', config.y / this._layer.maxHeight);
+		if (config.left) {
+			popup.css('left', config.left);
+		}
+		else if (config.right) {
+			popup.css('right', config.right);
+		}
+		if (config.top) {
+			popup.css('top', config.top);
+		}
+		else if (config.bottom) {
+			popup.css('top', config.bottom);
+		}
 
 		// Set direction
 		var dir = config.direction;
 		popup.removeClass('left right')
-		     .addClass(dir)
-		     .data('origin-x', dir)
-		     .data('origin-y', 'bottom');
+		     .addClass(dir);
 
 		// Set color
 		popup.removeClass('color1 color2 color3 color4 color5 color6 color7 color8 color9');
@@ -880,7 +806,6 @@ nefuPopupLayer.prototype = {
 		}
 
 		// Show
-		this._layer._resizeControl(popup);
 		popup.addClass('nf-visible');
 
 		return popup;
@@ -938,7 +863,7 @@ function nefuView(viewElement, config) {
 	// Initialize layers
 	$obj.find('.nf-layer').each(function() {
 		// Create layer
-		var layer = new nefuLayer($(this), view.maxWidth, view.maxHeight);
+		var layer = new nefuLayer($(this));
 
 		// Register layer
 		view.layers.push(layer);
@@ -952,6 +877,12 @@ function nefuView(viewElement, config) {
 		// Show layer
 		if ($(this).hasClass('visible')) {
 			layer.show();
+		}
+
+		// Convert absolute position to relative
+		if (!$(this).hasClass('static')) {
+			$(this).children()
+				.convertPositionRelative(view.maxWidth, view.maxHeight);
 		}
 	});
 
@@ -1016,6 +947,10 @@ nefuView.prototype = {
 		var eTop  = Math.max(0, (rHeight - vHeight) / 2);
 
 		// Set properties
+		this.viewWidth = vWidth;
+		this.viewHeight = vHeight;
+		this.scaledWidth = rWidth;
+		this.scaledHeight = rHeight;
 		this.curWidth = wWidth;
 		this.curHeight = wHeight;
 		this.curScale = r;
@@ -1037,9 +972,32 @@ nefuView.prototype = {
 		// Resize visible layers
 		for (var i=0; i<this.layers.length; i++) {
 			if (this.layers[i].visible) {
-				this.layers[i]._resize(eLeft, eTop, rWidth, rHeight, r);
+				this.resizeLayer(this.layers[i]);
 			}
 		}
+	},
+
+	resizeLayer: function(layer) {
+		if (layer.obj.hasClass('static')) {
+			layer.obj
+				.css({
+					left: 0, 
+					top:  0,
+					width: '100%',
+					height: '100%'
+				});
+		}
+		else {
+			layer.obj
+				.css({
+					left: -this.controlOffsetLeft + 'px',
+					top:  -this.controlOffsetTop + 'px',
+					width: this.scaledWidth + 'px',
+					height: this.scaledHeight + 'px'
+				});
+		}
+
+		layer.obj.find('.nf-image').css('transform', 'scale('+this.curScale+')');
 	},
 
 

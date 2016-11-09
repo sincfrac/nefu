@@ -102,13 +102,10 @@ a {
   filter: blur(10px);
 }
 
-.nf-layer .static {
-	position: absolute;
-}
-
 .nf-logo {
 	left: 40px;
 	right: 40px;
+	position: absolute;
 	white-space: nowrap;
 	background-image: url(http://sinc.xii.jp/blog/wp-content/uploads/2015/07/title_white.png);
 	background-repeat: no-repeat;
@@ -186,6 +183,7 @@ a {
 			rgba(255,255,255,0) 100%
 		);
 	opacity: 0;
+	transform: translate(0, -100%);
 }
 .nf-message.nf-visible {
 	animation: msgkf1 0.2s ease;
