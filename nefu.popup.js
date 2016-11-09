@@ -23,26 +23,15 @@ function nefuPopupManager($layer, config) {
 			delay: 0,
 			duration: 'auto',	// 'auto', 0(infinity), integer
 			color: '1',
-			loud: false
+			loud: false,
+			randX: 0,
+			randY: 0
 		}
 	}, config);
 }
 nefuPopupManager.prototype = {
 	say: function(cfg) {
 		config = $.extend(this._config.default, cfg);
-
-		// Delay
-		if (config.delay > 0) {
-			var c = config;
-			var self = this;
-
-			setTimeout(function() {
-				c.delay = 0;
-				self.say(c);
-			}, config.delay);
-
-			return this;
-		}
 
 		// Find inactive popup
 		var popup = null;
@@ -60,12 +49,14 @@ nefuPopupManager.prototype = {
 			this._$layer.append(popup);
 
 			popup.hide = function() {
+				// Clear timer
 				if (popup.durationTimer) {
 					clearTimeout(popup.durationTimer);
 					popup.durationTimer = null;
 					popup.duration = null;
 				}
 
+				// Hide
 				if (popup.hasClass('nf-visible')) {
 					popup.on('animationend', function() {
 						popup.off('animationend')
@@ -83,17 +74,24 @@ nefuPopupManager.prototype = {
 		popup.find('.title').text(config.title);
 
 		// Set position
+		var rndx = ((-0.5+Math.random()) * config.randX) | 0;
+		var rndy = ((-0.5+Math.random()) * config.randY) | 0;
+
 		if (config.left) {
-			popup.css('left', config.left);
+			popup.css('left', config.left)
+					 .css('left', '+='+rndx);
 		}
 		else if (config.right) {
-			popup.css('right', config.right);
+			popup.css('right', config.right)
+					 .css('right', '+='+rndx);
 		}
 		if (config.top) {
-			popup.css('top', config.top);
+			popup.css('top', config.top)
+					 .css('top', '+='+rndy);
 		}
 		else if (config.bottom) {
-			popup.css('top', config.bottom);
+			popup.css('bottom', config.bottom)
+					 .css('bottom', '+='+rndy);
 		}
 
 		// Set direction
@@ -118,6 +116,7 @@ nefuPopupManager.prototype = {
 		if (dur == 'auto') {
 			dur = Math.max(2000, config.text.length * 100);	// ToDo: 
 		}
+		dur += config.delay;
 		
 		// Set duration timer
 		if (dur > 0) {
@@ -135,7 +134,10 @@ nefuPopupManager.prototype = {
 		}
 
 		// Show
-		popup.addClass('nf-visible');
+		$.delayApply(popup, function() {
+			this.addClass('nf-visible');
+		},
+		config.delay);
 
 		return popup;
 	},
@@ -160,9 +162,7 @@ function nefuAutoPopup(popupManager, config) {
 		default: {},
 		minRest: 1000,
 		maxRest: 3000,
-		shuffle: true,
-		xRand: 10,
-		yRand: 10
+		shuffle: true
 	},
 	config);
 
@@ -231,10 +231,6 @@ nefuAutoPopup.prototype = {
 
 		// Merge with default values
 		text = $.extend({}, this.config.default, text);
-
-		// Set position
-		//text.left += (Math.random() * this.config.xRand) | 0;
-		//text.top  += (Math.random() * this.config.yRand) | 0;
 
 		// Say
 		this._lastPopup = this._manager.say(text);

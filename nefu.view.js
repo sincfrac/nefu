@@ -24,6 +24,15 @@ http://opensource.org/licenses/mit-license.php
 				if ($this.hasClass('visible')) {
 					$this.nfLayer('show');
 				}
+
+				// Convert absolute position to relative
+				if ($this.hasClass('static')) {
+					var width = $this.width(),
+							height = $this.height();
+
+					$this.children()
+						   .convertPositionRelative(width, height);
+				}
 			});
 		},
 
@@ -232,20 +241,12 @@ function nefuView(viewElement, config) {
 	$obj.find('.nf-layer').each(function() {
 		// Create layer
 		var $layer = $(this).nfLayer();
-
-		// Register layer
 		view.layers.push($layer);
 
 		// Register scenes
 		var scenes = $layer.dataSplit('scene');
 		for (var i=0; i<scenes.length; i++) {
 			view._ensureScene(scenes[i]).layers.push($layer);
-		}
-
-		// Convert absolute position to relative
-		if (!$layer.hasClass('static')) {
-			$layer.children()
-				.convertPositionRelative(view.maxWidth, view.maxHeight);
 		}
 	});
 
@@ -262,8 +263,7 @@ function nefuView(viewElement, config) {
 	// Initialize audios
 	$obj.find('audio[data-scene]').each(function() {
 		$audio = $(this);
-
-		var scenes = $audio.dataSplit('scene');
+		var scenes = $(this).dataSplit('scene');
 		for (var i=0; i<scenes.length; i++) {
 			view._ensureScene(scenes[i]).audios.push(this);
 		}
