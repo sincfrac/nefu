@@ -210,43 +210,15 @@ http://opensource.org/licenses/mit-license.php
 
 function nefuLayer(obj) {
 	this.obj = obj;
-	this.audios = [];
-	this.onStart = null;
-	this.onEnd = null;
-	this.onUpdate = null;
-	this.visible = false;
-	this.audioLoaded = false;
 	var layer = this;
-
-	// Parse scene names
-	if (obj.data('scene')) {
-		this.sceneNames = obj.data('scene').split(' ');
-	} else {
-		this.sceneNames = [];
-	}
-
-	// Register audio tags
-	obj.find('audio').each(function() {
-		var delay = 0;
-		if ($(this).data('delay')) {
-			delay = $(this).data('delay');
-		}
-		layer.audios.push({element:this, delay:delay});
-	});
-
-	// Register handler
-	if (obj.data('onstart')) {
-		layer.onStart = obj.data('onstart');
-	}
-	if (obj.data('onend')) {
-		layer.onEnd = obj.data('onend');
-	}
-	if (obj.data('onupdate')) {
-		layer.onUpdate = obj.data('onupdate');
-	}
 
 	// Hide object
 	obj.hide().css('visibility', 'visible');
+
+	// Show
+	if (obj.hasClass('visible')) {
+		this.show();
+	}
 }
 nefuLayer.prototype = {
 	//
@@ -254,7 +226,7 @@ nefuLayer.prototype = {
 	//
 	show: function() {
 		// Prevent repetition
-		if (this.visible) { return; }
+		if (this.visible()) { return; }
 
 		// Show layer container
 		this.obj.show();
@@ -281,12 +253,8 @@ nefuLayer.prototype = {
 		this.update();
 
 		// Execute handler
-		if (this.onStart) {
-			eval(this.onStart);
-		}
-
-		// Set property
-		this.visible = true;
+		var onStart = this.obj.data('onstart');
+		if (onStart) { eval(onStart); }
 
 		return this;
 	},
@@ -296,7 +264,7 @@ nefuLayer.prototype = {
 	//
 	hide: function() {
 		// Check visible
-		if (this.visible != true) { return; }
+		if (!this.visible()) { return; }
 
 		// Hide container
 		this.obj.hide();
@@ -305,12 +273,8 @@ nefuLayer.prototype = {
 		this.obj.find('.nf-visible').removeClass('nf-visible');
 
 		// Execute handler
-		if (this.onEnd) {
-			eval(this.onEnd);
-		}
-
-		// Set property
-		this.visible = false;
+		var onEnd = this.obj.data('onend');
+		if (onEnd) { eval(onEnd); }
 
 		return this;
 	},
@@ -332,54 +296,53 @@ nefuLayer.prototype = {
 		});
 
 		// Execute handler
-		if (this.onUpdate) {
-			eval(this.onUpdate);
-		}
+		var onUpdate = this.obj.data('onupdate');
+		if (onUpdate) { eval(onUpdate); }
 
 		return this;
 	},
 
 	loadAudio: function() {
-		for (var i=0; i<this.audios.length; i++) {
-			this.audios[i].element.load();
-		}
-		this.audioLoaded = true;
+		this.obj.find('audio').each(function() {
+			this.load();
+		});
 
 		return this;
 	},
 
 	playAudio: function() {
-		if (!this.audioLoaded) {
-			this.loadAudio();
-		}
+		this.obj.find('audio').each(function() {
+			var $this = $(this);
+			var self = this;
 
-		for (var i=0; i<this.audios.length; i++) {
-			var audio = this.audios[i];
-			if (audio.delay == 0) {
-				audio.element.play();
+			var delay = $this.data('delay') || 0;
+			if (delay == 0) {
+				this.play();
 			}
 			else {
-				setTimeout(function(a) {
-					a.play();
-				}, audio.delay, audio.element);
+				setTimeout(function() {
+					self.play();
+				}, delay);
 			}
-		}
+			this.play();
+		});
 
 		return this;
 	},
 
 	stopAudio: function() {
-		for (var i=0; i<this.audios.length; i++) {
-			var audio = this.audios[i];
-			if (!audio.element.ended) {
-				audio.element.pause();
-				audio.element.currentTime = 0;
+		this.obj.find('audio').each(function() {
+			if (!this.ended) {
+				this.pause();
+				this.currentTime = 0;
 			}
-		}
-
-		this.audioLoaded = false;
+		});
 
 		return this;
+	},
+
+	visible: function() {
+		return this.obj.css('display') == 'block';
 	}
 
 };
@@ -863,25 +826,24 @@ function nefuView(viewElement, config) {
 	// Initialize layers
 	$obj.find('.nf-layer').each(function() {
 		// Create layer
-		var layer = new nefuLayer($(this));
+		var $layer = $(this);
+		var layer = new nefuLayer($layer);
 
 		// Register layer
 		view.layers.push(layer);
 		if (this.id) {
 			view.layerById[this.id] = layer;
 		}
-		for (var i=0; i<layer.sceneNames.length; i++) {
-			view._ensureScene(layer.sceneNames[i]).layers.push(layer);
-		}
 
-		// Show layer
-		if ($(this).hasClass('visible')) {
-			layer.show();
+		// Register scenes
+		var scenes = $layer.data('scene') ? $layer.data('scene').split(' ') : [];
+		for (var i=0; i<scenes.length; i++) {
+			view._ensureScene(scenes[i]).layers.push(layer);
 		}
 
 		// Convert absolute position to relative
-		if (!$(this).hasClass('static')) {
-			$(this).children()
+		if (!$layer.hasClass('static')) {
+			$layer.children()
 				.convertPositionRelative(view.maxWidth, view.maxHeight);
 		}
 	});
@@ -971,7 +933,7 @@ nefuView.prototype = {
 
 		// Resize visible layers
 		for (var i=0; i<this.layers.length; i++) {
-			if (this.layers[i].visible) {
+			if (this.layers[i].visible()) {
 				this.resizeLayer(this.layers[i]);
 			}
 		}
@@ -1088,7 +1050,7 @@ nefuView.prototype = {
 	update: function() {
 		// Update all visible layers
 		for (var i=0; i<this.layers.length; i++) {
-			if (this.layers[i].visible) {
+			if (this.layers[i].visible()) {
 				this.layers[i].update();
 			}
 		}
