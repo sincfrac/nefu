@@ -237,7 +237,7 @@ function nefuView(viewElement, config) {
 		view.layers.push($layer);
 
 		// Register scenes
-		var scenes = $layer.data('scene') ? $layer.data('scene').split(' ') : [];
+		var scenes = $layer.dataSplit('scene');
 		for (var i=0; i<scenes.length; i++) {
 			view._ensureScene(scenes[i]).layers.push($layer);
 		}
@@ -251,19 +251,19 @@ function nefuView(viewElement, config) {
 
 	// Initialize elements shown at specified scenes
 	$obj.find('[data-visible-scenes]').each(function(idx) {
-		var self = $(this);
-		var snames = self.data('visible-scenes').split(' ');
+		var $elm = $(this);
+		var snames = $elm.dataSplit('visible-scenes');
 		for (var i=0; i<snames.length; i++) {
-			view.scenes[snames[i]].visibleElements.push(self);
+			view.scenes[snames[i]].visibleElements.push($elm);
 		}
-		self.hide();
+		$elm.hide();
 	});
 
 	// Initialize audios
 	$obj.find('audio[data-scene]').each(function() {
 		$audio = $(this);
 
-		var scenes = $audio.data('scene') ? $audio.data('scene').split(' ') : [];
+		var scenes = $audio.dataSplit('scene');
 		for (var i=0; i<scenes.length; i++) {
 			view._ensureScene(scenes[i]).audios.push(this);
 		}

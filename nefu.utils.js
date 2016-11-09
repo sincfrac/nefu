@@ -228,4 +228,14 @@ http://opensource.org/licenses/mit-license.php
 		}
 	};
 
+	$.fn.dataSplit = function(name) {
+		var data = this.data(name);
+		if (data) {
+			return data.split(' ');
+		}
+		else {
+			return [];
+		}
+	};
+
 })( jQuery );
