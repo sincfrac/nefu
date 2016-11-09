@@ -207,145 +207,147 @@ http://opensource.org/licenses/mit-license.php
 
 
 
+(function( $ ) {
+	var methods = {
+		init: function() {
+			return this.each(function() {
+				var $this = $(this);
+				// Hide object
+				$this.hide().css('visibility', 'visible');
 
-function nefuLayer(obj) {
-	this.obj = obj;
-	var layer = this;
+				// Show
+				if ($this.hasClass('visible')) {
+					$this.nfLayer('show');
+				}
+			});
+		},
 
-	// Hide object
-	obj.hide().css('visibility', 'visible');
+		visible: function() {
+			return this.css('display') == 'block';
+		},
 
-	// Show
-	if (obj.hasClass('visible')) {
-		this.show();
-	}
-}
-nefuLayer.prototype = {
-	//
-	// Show layer
-	//
-	show: function() {
-		// Prevent repetition
-		if (this.visible()) { return; }
+		show: function() {
+			return this.each(function() {
+				var $this = $(this);
+				if ($this.css('display') == 'block') { return; }
 
-		// Show layer container
-		this.obj.show();
+				// Show layer container
+				$this.show();
 
-		// Show elements
-		this.obj.find('.visible').addClass('nf-visible');
+				// Show elements
+				$this.find('.visible').addClass('nf-visible');
 
-		// delay visible
-		this.obj.find('[data-visible-delay]').each(function() {
-			var elm = $(this);
-			var delay = elm.data('visible-delay');
-			if (delay == 0) {
-				elm.nfShow();
-			}
-			else {
-				elm.removeClass('nf-visible');
-				setTimeout(function(e) {
-					e.nfShow();
-				}, delay, elm);
-			}
-		});
+				// delay visible
+				$this.find('[data-visible-delay]').each(function() {
+					var elm = $(this);
+					var delay = elm.data('visible-delay');
+					if (delay == 0) {
+						elm.nfShow();
+					}
+					else {
+						elm.removeClass('nf-visible');
+						setTimeout(function(e) {
+							e.nfShow();
+						}, delay, elm);
+					}
+				});
 
-		// Update
-		this.update();
+				// Update
+				$this.nfLayer('update');
 
-		// Execute handler
-		var onStart = this.obj.data('onstart');
-		if (onStart) { eval(onStart); }
+				// Execute handler
+				var onStart = $this.data('onstart');
+				if (onStart) { eval(onStart); }
+			});
+		},
 
-		return this;
-	},
+		hide: function() {
+			return this.each(function() {
+				var $this = $(this);
+				if (!$this.css('display') == 'none') { return; }
 
-	//
-	// Hide layer
-	//
-	hide: function() {
-		// Check visible
-		if (!this.visible()) { return; }
+				// Hide container
+				$this.hide();
 
-		// Hide container
-		this.obj.hide();
+				// Hide elements
+				$this.find('.nf-visible').removeClass('nf-visible');
 
-		// Hide elements
-		this.obj.find('.nf-visible').removeClass('nf-visible');
+				// Execute handler
+				var onEnd = $this.data('onend');
+				if (onEnd) { eval(onEnd); }
+			});
+		},
 
-		// Execute handler
-		var onEnd = this.obj.data('onend');
-		if (onEnd) { eval(onEnd); }
+		update: function() {
+			return this.each(function() {
+				$this = $(this);
+				// Update conditional visible
+				$this.find('[data-visible-condition]').each(function() {
+					var elm = $(this);
+					var cond = elm.data('visible-condition');
+					if (eval(cond) == true) {
+						elm.addClass('nf-visible');
+					}
+					else {
+						elm.removeClass('nf-visible');
+					}
+				});
 
-		return this;
-	},
+				// Execute handler
+				var onUpdate = $this.data('onupdate');
+				if (onUpdate) { eval(onUpdate); }
+			});
+		},
 
-	//
-	// Update
-	//
-	update: function() {
-		// Update conditional visible
-		this.obj.find('[data-visible-condition]').each(function() {
-			var elm = $(this);
-			var cond = elm.data('visible-condition');
-			if (eval(cond) == true) {
-				elm.addClass('nf-visible');
-			}
-			else {
-				elm.removeClass('nf-visible');
-			}
-		});
+		loadAudio: function() {
+			return this.each(function() {
+				$(this).find('audio').each(function() {
+					this.load();
+				});
+			});
+		},
 
-		// Execute handler
-		var onUpdate = this.obj.data('onupdate');
-		if (onUpdate) { eval(onUpdate); }
+		playAudio: function() {
+			return this.each(function() {
+				$(this).find('audio').each(function() {
+					var delay = $(this).data('delay') || 0;
+					if (delay == 0) {
+						this.play();
+					}
+					else {
+						var audio = this;
+						setTimeout(function() {
+							audio.play();
+						}, delay);
+					}
+				});
+			});
+		},
 
-		return this;
-	},
+		stopAudio: function() {
+			return this.each(function() {
+				$(this).find('audio').each(function() {
+					if (!this.ended) {
+						this.pause();
+						this.currentTime = 0;
+					}
+				});
+			});
+		}
 
-	loadAudio: function() {
-		this.obj.find('audio').each(function() {
-			this.load();
-		});
+	};
 
-		return this;
-	},
+	$.fn.nfLayer = function(method) {
+    if ( methods[method] ) {
+      return methods[method].apply( this, Array.prototype.slice.call( arguments, 1 ));
+    } else if ( typeof method === 'object' || ! method ) {
+      return methods.init.apply( this, arguments );
+    } else {
+      $.error( 'Method ' +  method + ' does not exist on jQuery.nfLayer' );
+    }
+	};
+})( jQuery );
 
-	playAudio: function() {
-		this.obj.find('audio').each(function() {
-			var $this = $(this);
-			var self = this;
-
-			var delay = $this.data('delay') || 0;
-			if (delay == 0) {
-				this.play();
-			}
-			else {
-				setTimeout(function() {
-					self.play();
-				}, delay);
-			}
-			this.play();
-		});
-
-		return this;
-	},
-
-	stopAudio: function() {
-		this.obj.find('audio').each(function() {
-			if (!this.ended) {
-				this.pause();
-				this.currentTime = 0;
-			}
-		});
-
-		return this;
-	},
-
-	visible: function() {
-		return this.obj.css('display') == 'block';
-	}
-
-};
 
 
 
@@ -356,7 +358,6 @@ nefuLayer.prototype = {
 function nefuScene() {
 	this.layers = [];
 	this.visibleElements = [];
-	this.isPlayingMessage;
 }
 nefuScene.prototype = {
 	_show: function() {
@@ -364,7 +365,7 @@ nefuScene.prototype = {
 			this.visibleElements[i].show();
 		}
 		for (var i=0; i<this.layers.length; i++) {
-			this.layers[i].show();
+			this.layers[i].nfLayer('show');
 		}
 	},
 
@@ -372,7 +373,7 @@ nefuScene.prototype = {
 		for (var i=0; i<this.layers.length; i++) {
 			var layer = this.layers[i];
 			if (nextScene.layers.indexOf(layer) < 0) {
-				layer.hide();
+				layer.nfLayer('hide');
 			}
 		}
 		for (var i=0; i<this.visibleElements.length; i++) {
@@ -385,19 +386,19 @@ nefuScene.prototype = {
 
 	_loadAudio: function() {
 		for (var i=0; i<this.layers.length; i++) {
-			this.layers[i].loadAudio();
+			this.layers[i].nfLayer('loadAudio');
 		}
 	},
 
 	_playAudio: function() {
 		for (var i=0; i<this.layers.length; i++) {
-			this.layers[i].playAudio();
+			this.layers[i].nfLayer('playAudio');
 		}
 	},
 
 	_stopAudio: function() {
 		for (var i=0; i<this.layers.length; i++) {
-			this.layers[i].stopAudio();
+			this.layers[i].nfLayer('stopAudio');
 		}
 	},
 
@@ -407,7 +408,7 @@ nefuScene.prototype = {
 
 	_update: function() {
 		for (var i=0; i<this.layers.length; i++) {
-			this.layers[i].update();
+			this.layers[i].nfLayer('update');
 		}
 	}
 };
@@ -476,8 +477,8 @@ nefuScene.prototype = {
 
 
 
-function nefuAutoPopup(popupLayer, config) {
-	this._popupLayer = popupLayer;
+function nefuAutoPopup(popupManager, config) {
+	this._manager = popupManager;
 
 	this.config = $.extend({
 		default: {},
@@ -560,7 +561,7 @@ nefuAutoPopup.prototype = {
 		//text.top  += (Math.random() * this.config.yRand) | 0;
 
 		// Say
-		this._lastPopup = this._popupLayer.say(text);
+		this._lastPopup = this._manager.say(text);
 
 		// Set next
 		if (this.started == true && this._lastPopup.duration > 0) {
@@ -642,8 +643,8 @@ nefuChat.prototype = {
 
 
 
-function nefuPopupManager(layer, config) {
-	this._layer = layer;
+function nefuPopupManager($layer, config) {
+	this._$layer = $layer;
 	this._popups = [];
 	this._config = $.extend({
 		default: {
@@ -691,7 +692,7 @@ nefuPopupManager.prototype = {
 		if (popup == null) {
 			popup = $('<div class="nf-message"><span class="title"></span><span class="text"></span></div>');
 			this._popups.push(popup);
-			this._layer.obj.append(popup);
+			this._$layer.append(popup);
 
 			popup.hide = function() {
 				if (popup.durationTimer) {
@@ -793,9 +794,7 @@ function nefuView(viewElement, config) {
 	this.curHeight = 0;
 
 	this.scenes = [];
-
 	this.layers = [];
-	this.layerById = [];
 
 	var view = this;
 
@@ -826,19 +825,15 @@ function nefuView(viewElement, config) {
 	// Initialize layers
 	$obj.find('.nf-layer').each(function() {
 		// Create layer
-		var $layer = $(this);
-		var layer = new nefuLayer($layer);
+		var $layer = $(this).nfLayer();
 
 		// Register layer
-		view.layers.push(layer);
-		if (this.id) {
-			view.layerById[this.id] = layer;
-		}
+		view.layers.push($layer);
 
 		// Register scenes
 		var scenes = $layer.data('scene') ? $layer.data('scene').split(' ') : [];
 		for (var i=0; i<scenes.length; i++) {
-			view._ensureScene(scenes[i]).layers.push(layer);
+			view._ensureScene(scenes[i]).layers.push($layer);
 		}
 
 		// Convert absolute position to relative
@@ -933,33 +928,31 @@ nefuView.prototype = {
 
 		// Resize visible layers
 		for (var i=0; i<this.layers.length; i++) {
-			if (this.layers[i].visible()) {
+			if (this.layers[i].nfLayer('visible')) {
 				this.resizeLayer(this.layers[i]);
 			}
 		}
 	},
 
-	resizeLayer: function(layer) {
-		if (layer.obj.hasClass('static')) {
-			layer.obj
-				.css({
-					left: 0, 
-					top:  0,
-					width: '100%',
-					height: '100%'
-				});
+	resizeLayer: function($layer) {
+		if ($layer.hasClass('static')) {
+			$layer.css({
+				left: 0, 
+				top:  0,
+				width: '100%',
+				height: '100%'
+			});
 		}
 		else {
-			layer.obj
-				.css({
-					left: -this.controlOffsetLeft + 'px',
-					top:  -this.controlOffsetTop + 'px',
-					width: this.scaledWidth + 'px',
-					height: this.scaledHeight + 'px'
-				});
+			$layer.css({
+				left: -this.controlOffsetLeft + 'px',
+				top:  -this.controlOffsetTop + 'px',
+				width: this.scaledWidth + 'px',
+				height: this.scaledHeight + 'px'
+			});
 		}
 
-		layer.obj.find('.nf-image').css('transform', 'scale('+this.curScale+')');
+		$layer.find('.nf-image').css('transform', 'scale('+this.curScale+')');
 	},
 
 
@@ -1050,8 +1043,8 @@ nefuView.prototype = {
 	update: function() {
 		// Update all visible layers
 		for (var i=0; i<this.layers.length; i++) {
-			if (this.layers[i].visible()) {
-				this.layers[i].update();
+			if (this.layers[i].nfLayer('visible')) {
+				this.layers[i].nfLayer('update');
 			}
 		}
 	},
