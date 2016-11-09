@@ -200,6 +200,20 @@ http://opensource.org/licenses/mit-license.php
 		loadImageNext(urls);
 	};
 
+	$.nfInitPlugin = function(pluginName, methods) {
+		var _methods = methods;
+		var _name = pluginName;
+		$.fn[pluginName] = function(m) {
+	    if ( _methods[m] ) {
+	      return _methods[m].apply( this, Array.prototype.slice.call( arguments, 1 ));
+	    } else if ( typeof m === 'object' || typeof m === 'function' || ! m ) {
+	      return _methods.init.apply( this, arguments );
+	    } else {
+	      $.error( 'Method ' +  m + ' does not exist on jQuery.' + _name );
+	    }
+		};
+	};
+
 })( jQuery );
 
 

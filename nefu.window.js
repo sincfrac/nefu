@@ -62,32 +62,40 @@ http://opensource.org/licenses/mit-license.php
 
 
 
+/*
+	nfChatBox
+*/
+(function( $ ) {
+	$.nfInitPlugin('nfChatBox', 
+	{
+		init: function(funcSend) {
+			return this.each(function() {
+				var $this = $(this);
+				var func = funcSend;
 
+				// Store function
+				$this.data('nfChatBox.func', func);
 
+				// Set handler
+				$this.keypress(function(ev) {
+					if (ev.keyCode && ev.keyCode === 13) {
+						func($this.val());
+						$this.val('');
+					}
+				});
+			});
+		},
 
-function nefuChat(view, funcInput) {
-	// Create chat area
-	var $chat = $('<div class="nf-chat"><input class="text" type="text" /><div class="send loc-say">発言</div></div>');
-	view.$obj.append($chat);
-	this.$obj = $chat;
-
-	this._funcInput = funcInput;
-	var self = this;
-
-	// Set handlers
-	var $chatInput = $chat.find('.text');
-	$chatInput.keypress(function(ev) {
-		if (ev.keyCode && ev.keyCode === 13) {
-			self._funcInput($(this).val());
-			$(this).val('');
+		send: function() {
+			return this.each(function() {
+				var $this = $(this);
+				var func = $this.data('nfChatBox.func');
+				if (func) {
+					func($this.val());
+					$this.val('');
+				}
+			});
 		}
 	});
-	$chat.find('.send').click(function() {
-		self.cbInput($chatInput.val());
-		$chatInput.val('');
-	});
-}
-nefuChat.prototype = {
-
-};
+})( jQuery );
 
