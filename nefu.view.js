@@ -26,7 +26,7 @@ http://opensource.org/licenses/mit-license.php
 				}
 
 				// Convert absolute position to relative
-				if ($this.hasClass('static')) {
+				if (!$this.hasClass('static')) {
 					var width = $this.width(),
 							height = $this.height();
 

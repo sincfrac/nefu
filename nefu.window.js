@@ -47,7 +47,16 @@ http://opensource.org/licenses/mit-license.php
 				});
 
 			});
+		},
+
+		open: function() {
+			return this.addClass('nf-visible');
+		},
+
+		close: function() {
+			return this.removeClass('nf-visible');
 		}
+
 	});
 })( jQuery );
 
