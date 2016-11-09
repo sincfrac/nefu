@@ -13,7 +13,8 @@ http://opensource.org/licenses/mit-license.php
 	nfWindow
 */
 (function( $ ) {
-	var methods = {
+	$.nfPlugin('nfWindow', 
+	{
 		// Initialize
 		init: function(opts) {
 			return this.each(function() {
@@ -47,17 +48,7 @@ http://opensource.org/licenses/mit-license.php
 
 			});
 		}
-	};
-
-	$.fn.nfWindow = function(method) {
-    if ( methods[method] ) {
-      return methods[method].apply( this, Array.prototype.slice.call( arguments, 1 ));
-    } else if ( typeof method === 'object' || ! method ) {
-      return methods.init.apply( this, arguments );
-    } else {
-      $.error( 'Method ' +  method + ' does not exist on jQuery.nfWindow' );
-    }
-	};
+	});
 })( jQuery );
 
 
@@ -66,7 +57,7 @@ http://opensource.org/licenses/mit-license.php
 	nfChatBox
 */
 (function( $ ) {
-	$.nfInitPlugin('nfChatBox', 
+	$.nfPlugin('nfChatBox', 
 	{
 		init: function(funcSend) {
 			return this.each(function() {

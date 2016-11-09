@@ -200,7 +200,7 @@ http://opensource.org/licenses/mit-license.php
 		loadImageNext(urls);
 	};
 
-	$.nfInitPlugin = function(pluginName, methods) {
+	$.nfPlugin = function(pluginName, methods) {
 		var _methods = methods;
 		var _name = pluginName;
 		$.fn[pluginName] = function(m) {
@@ -225,7 +225,8 @@ http://opensource.org/licenses/mit-license.php
 	nfLayer
 */
 (function( $ ) {
-	var methods = {
+	$.nfPlugin('nfLayer', 
+	{
 		init: function() {
 			return this.each(function() {
 				var $this = $(this);
@@ -352,17 +353,7 @@ http://opensource.org/licenses/mit-license.php
 			});
 		}
 
-	};
-
-	$.fn.nfLayer = function(method) {
-    if ( methods[method] ) {
-      return methods[method].apply( this, Array.prototype.slice.call( arguments, 1 ));
-    } else if ( typeof method === 'object' || ! method ) {
-      return methods.init.apply( this, arguments );
-    } else {
-      $.error( 'Method ' +  method + ' does not exist on jQuery.nfLayer' );
-    }
-	};
+	});
 })( jQuery );
 
 
