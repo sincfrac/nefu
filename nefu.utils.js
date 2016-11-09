@@ -30,43 +30,6 @@ http://opensource.org/licenses/mit-license.php
   	return this;
   };
 
-  $.fn.nfShow = function() {
-		this.addClass('nf-visible');
-		var duration = this.data('visible-duration');
-		if (duration) {
-			setTimeout(function(e) {
-				e.removeClass('nf-visible');
-			}, duration, this);
-		}
-		return this;
-  };
-
-  $.fn.nfHide = function() {
-  	this.removeClass('nf-visible');
-  	return this;
-  };
-
-  $.fn.nfVisible = function(val) {
-  	if (val == true) {
-  		return this.nfShow();
-  	}
-  	else if (val == false) {
-  		return this.nfHide();
-  	}
-  	else {
-  		return this.hasClass('nf-visible');
-  	}
-  };
-
-  $.fn.nfToggle = function() {
-  	if (this.hasClass('nf-visible')) {
-  		return this.nfHide();
-  	}
-  	else {
-  		return this.nfShow();
-  	}
-  };
-
   var _nfPositionProp = function($elm, prop, val, max, force) {
 		var cur = $elm[0].style[prop] || $elm.css(prop);
 		if (cur) {

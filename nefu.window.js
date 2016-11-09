@@ -49,12 +49,21 @@ http://opensource.org/licenses/mit-license.php
 			});
 		},
 
-		open: function() {
+		show: function() {
 			return this.addClass('nf-visible');
 		},
 
-		close: function() {
+		hide: function() {
 			return this.removeClass('nf-visible');
+		},
+
+		toggle: function() {
+			if (this.hasClass('nf-visible')) {
+				return this.removeClass('nf-visible');
+			}
+			else {
+				return this.addClass('nf-visible');
+			}
 		}
 
 	});

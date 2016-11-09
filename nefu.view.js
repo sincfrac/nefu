@@ -53,17 +53,21 @@ http://opensource.org/licenses/mit-license.php
 
 				// delay visible
 				$this.find('[data-visible-delay]').each(function() {
-					var elm = $(this);
-					var delay = elm.data('visible-delay');
-					if (delay == 0) {
-						elm.nfShow();
-					}
-					else {
-						elm.removeClass('nf-visible');
-						setTimeout(function(e) {
-							e.nfShow();
-						}, delay, elm);
-					}
+					var $elm = $(this);
+					var delay = $elm.data('visible-delay');
+
+					$elm.removeClass('nf-visible');
+
+					// Show
+					$.delayApply($elm, function() {	
+						this.addClass('nf-visible');
+						var duration = this.data('visible-duration');
+						if (duration) {
+							setTimeout(function(e) {
+								e.removeClass('nf-visible');
+							}, duration, this);
+						}
+					}, delay);
 				});
 
 				// Update
