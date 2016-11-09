@@ -90,9 +90,9 @@ http://opensource.org/licenses/mit-license.php
   };
 
   $.fn.visibility = function(val) {
-  	if (val == true) {
+  	if (val === true) {
   		this.css('visibility', 'visible');
-  	} else if (val == false) {
+  	} else if (val === false) {
   		this.css('visibility', 'hidden');
   	} else {
   		return this.css('visibility') == 'visible';
@@ -178,7 +178,7 @@ http://opensource.org/licenses/mit-license.php
 	};
 
 	$.delayApply = function(caller, func, delay) {
-		if (delay == 0) {
+		if (delay === 0) {
 			func.apply(caller);
 			return null;
 		}

@@ -103,7 +103,7 @@ http://opensource.org/licenses/mit-license.php
 				$this.find('[data-visible-condition]').each(function() {
 					var elm = $(this);
 					var cond = elm.data('visible-condition');
-					if (eval(cond) == true) {
+					if (eval(cond) === true) {
 						elm.addClass('nf-visible');
 					}
 					else {
@@ -281,7 +281,7 @@ function nefuView(viewElement, config) {
 	$obj.append(this.cover);
 
 	// Register resize handler, and do initial resize
-	if (this.config.fullSize == true) {
+	if (this.config.fullSize === true) {
 		var funcResize = function() {
 			var w = $(window).width(),
 					h = $(window).height();

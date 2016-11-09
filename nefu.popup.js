@@ -31,7 +31,7 @@ function nefuPopupManager($layer, config) {
 }
 nefuPopupManager.prototype = {
 	say: function(cfg) {
-		config = $.extend(this._config.default, cfg);
+		config = $.extend({}, this._config.default, cfg);
 
 		// Find inactive popup
 		var popup = null;
