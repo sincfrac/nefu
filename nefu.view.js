@@ -7,6 +7,8 @@ This software is released under the MIT License.
 http://opensource.org/licenses/mit-license.php
 */
 
+var nefu = nefu || {};
+
 
 /*
 	nfLayer
@@ -59,7 +61,7 @@ http://opensource.org/licenses/mit-license.php
 					$elm.removeClass('nf-visible');
 
 					// Show
-					$.delayApply($elm, function() {	
+					nefu.delayApply($elm, function() {	
 						this.addClass('nf-visible');
 						var duration = this.data('visible-duration');
 						if (duration) {
@@ -126,13 +128,13 @@ http://opensource.org/licenses/mit-license.php
 
 
 
-function nefuScene(view) {
+nefu.Scene = function(view) {
 	this.view = view;
 	this.layers = [];
 	this.audios = [];
 	this.visibleElements = [];
-}
-nefuScene.prototype = {
+};
+nefu.Scene.prototype = {
 	load: function() {
 		if (this.view.audioEnable) {
 			for (var i=0; i<this.audios.length; i++) {
@@ -187,7 +189,7 @@ nefuScene.prototype = {
 		var delay = $(audio).data('delay') || 0;
 
 		if (audio.paused || audio.ended) {
-			$.delayApply(audio, function() {
+			nefu.delayApply(audio, function() {
 				this.play();
 			}, delay);
 		}
@@ -207,7 +209,7 @@ nefuScene.prototype = {
 
 
 
-function nefuView(viewElement, config) {
+nefu.View = function(viewElement, config) {
 	// Initialize members
 	this.curWidth = 0;
 	this.curHeight = 0;
@@ -293,11 +295,11 @@ function nefuView(viewElement, config) {
 
 	// Go to default scene
 	this.changeScene(this.config.startScene);
-}
-nefuView.prototype = {
+};
+nefu.View.prototype = {
 	_ensureScene: function(sceneName) {
 		if (!(sceneName in this.scenes)) {
-			this.scenes[sceneName] = new nefuScene(this);
+			this.scenes[sceneName] = new nefu.Scene(this);
 		}
 		return this.scenes[sceneName];
 	},

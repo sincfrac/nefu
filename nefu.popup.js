@@ -7,8 +7,10 @@ This software is released under the MIT License.
 http://opensource.org/licenses/mit-license.php
 */
 
+var nefu = nefu || {};
 
-function nefuPopupManager($layer, config) {
+
+nefu.PopupManager = function($layer, config) {
 	this._$layer = $layer;
 	this._popups = [];
 	this._config = $.extend({
@@ -28,8 +30,8 @@ function nefuPopupManager($layer, config) {
 			randY: 0
 		}
 	}, config);
-}
-nefuPopupManager.prototype = {
+};
+nefu.PopupManager.prototype = {
 	say: function(cfg) {
 		config = $.extend({}, this._config.default, cfg);
 
@@ -134,7 +136,7 @@ nefuPopupManager.prototype = {
 		}
 
 		// Show
-		$.delayApply(popup, function() {
+		nefu.delayApply(popup, function() {
 			this.addClass('nf-visible');
 		},
 		config.delay);
@@ -155,7 +157,7 @@ nefuPopupManager.prototype = {
 
 
 
-function nefuAutoPopup(popupManager, config) {
+nefu.AutoPopup = function(popupManager, config) {
 	this._manager = popupManager;
 
 	this.config = $.extend({
@@ -173,8 +175,8 @@ function nefuAutoPopup(popupManager, config) {
 	this._lastIndex = -1;
 	this._interruptText = null;
 	this._lastTimer = -1;
-}
-nefuAutoPopup.prototype = {
+};
+nefu.AutoPopup.prototype = {
 	set: function(texts) {
 		this._texts = texts;
 		this._makeIndices();
@@ -193,7 +195,7 @@ nefuAutoPopup.prototype = {
 		if (len > 1 && this.config.shuffle == true) {
 			// Shuffle indices
 			do {
-				$.shuffle(arr);
+				nefu.shuffle(arr);
 			} while(arr[len-1] == this._lastIndex)
 		}
 

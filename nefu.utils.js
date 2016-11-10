@@ -7,18 +7,100 @@ This software is released under the MIT License.
 http://opensource.org/licenses/mit-license.php
 */
 
+var nefu = nefu || {};
+
+
+nefu.getUrlArgs = function() {
+	var args = [];
+	var pair = location.search.substring(1).split('&');
+	for(var i=0; pair[i]; i++) {
+	    var kv = pair[i].split('=');
+	    args[kv[0]]=kv[1];
+	}
+	return args;
+};
+
+nefu.shuffle = function(arr) {
+	for (var n=arr.length-1; n>=0; n--) {
+		var i = Math.floor(Math.random() * n);
+		var tmp = arr[n];
+		arr[n] = arr[i];
+		arr[i] = tmp;
+	}
+	return arr;
+};
+
+nefu.sample = function(arr) {
+	return arr[Math.floor(Math.random()*arr.length)];
+};
+
+nefu.delayApply = function(caller, func, delay) {
+	if (delay === 0) {
+		func.apply(caller);
+		return null;
+	}
+	else {
+		var _func = func;
+		var _caller = caller;
+		return setTimeout(function() {
+			_func.apply(_caller);
+		}, delay);
+	}
+};
+
+nefu.preload = function(urls, cbProgress, cbFinish, cbError) {
+	// Start preloading resources
+	var preloadNum = urls.length;
+
+	function getExtension(filename) {
+		var ss = filename.split('.');
+		return ss[ss.length-1].toLowerCase();
+	}
+
+	function loadImageNext(arr) {
+		if (arr.length == 0) {
+			if (cbFinish) { cbFinish(); }
+			return;
+		}
+		if (cbProgress) {
+			cbProgress(1 - arr.length / preloadNum);
+		}
+		
+		var src = arr.pop();
+		var ext = getExtension(src);
+
+		if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
+			var tmp = new Image();
+			tmp.onload = function() {
+				loadImageNext(arr);
+			};
+			tmp.onerror = function() {
+				if (cbError) { cbError(); }
+			};
+			tmp.src = src;
+		}
+		else if (ext == 'mp3') {
+			loadImageNext(arr);
+			/*var tmp = new Audio();
+			tmp.autoplay = false;
+			tmp.onloadeddata = function() {
+				loadImageNext(arr);
+			};
+			tmp.onerror = function() {
+				if (config.preloadError) { config.preloadError(); }
+			};
+			tmp.src = src;
+			tmp.load();*/
+		}
+	}
+
+	loadImageNext(urls);
+};
+
+
+
 
 (function( $ ) {
-	$.fn.getUrlArgs = function() {
-		var args = [];
-		var pair = location.search.substring(1).split('&');
-		for(var i=0; pair[i]; i++) {
-		    var kv = pair[i].split('=');
-		    args[kv[0]]=kv[1];
-		}
-		return args;
-	};
-
   $.fn.toggleVisibility = function() {
   	var v = this.css('visibility');
   	if (v == 'visible') {
@@ -100,69 +182,6 @@ http://opensource.org/licenses/mit-license.php
   	return this;
   };
 
-  $.shuffle = function(arr) {
-		for (var n=arr.length-1; n>=0; n--) {
-			var i = Math.floor(Math.random() * n);
-			var tmp = arr[n];
-			arr[n] = arr[i];
-			arr[i] = tmp;
-		}
-		return arr;
-  };
-
-  $.sample = function(arr) {
-  	return arr[Math.floor(Math.random()*arr.length)];
-  };
-
-  $.nfPreload = function(urls, cbProgress, cbFinish, cbError) {
-		// Start preloading resources
-		var preloadNum = urls.length;
-
-		function getExtension(filename) {
-			var ss = filename.split('.');
-			return ss[ss.length-1].toLowerCase();
-		}
-
-		function loadImageNext(arr) {
-			if (arr.length == 0) {
-				if (cbFinish) { cbFinish(); }
-				return;
-			}
-			if (cbProgress) {
-				cbProgress(1 - arr.length / preloadNum);
-			}
-			
-			var src = arr.pop();
-			var ext = getExtension(src);
-
-			if (ext == 'jpg' || ext == 'png' || ext == 'gif') {
-				var tmp = new Image();
-				tmp.onload = function() {
-					loadImageNext(arr);
-				};
-				tmp.onerror = function() {
-					if (cbError) { cbError(); }
-				};
-				tmp.src = src;
-			}
-			else if (ext == 'mp3') {
-				loadImageNext(arr);
-				/*var tmp = new Audio();
-				tmp.autoplay = false;
-				tmp.onloadeddata = function() {
-					loadImageNext(arr);
-				};
-				tmp.onerror = function() {
-					if (config.preloadError) { config.preloadError(); }
-				};
-				tmp.src = src;
-				tmp.load();*/
-			}
-		}
-
-		loadImageNext(urls);
-	};
-
 	$.nfPlugin = function(pluginName, methods) {
 		var _methods = methods;
 		var _name = pluginName;
@@ -176,21 +195,7 @@ http://opensource.org/licenses/mit-license.php
 	    }
 		};
 	};
-
-	$.delayApply = function(caller, func, delay) {
-		if (delay === 0) {
-			func.apply(caller);
-			return null;
-		}
-		else {
-			var _func = func;
-			var _caller = caller;
-			return setTimeout(function() {
-				_func.apply(_caller);
-			}, delay);
-		}
-	};
-
+	
 	$.fn.dataSplit = function(name) {
 		var data = this.data(name);
 		if (data) {

@@ -7,8 +7,11 @@ This software is released under the MIT License.
 http://opensource.org/licenses/mit-license.php
 */
 
+var nefu = nefu || {};
+nefu.effects = nefu.effects || {};
 
-function nefuCanvasContext2d(canvasElement) {
+
+nefu.getCanvasContext2d = function(canvasElement) {
 	var ctx = canvasElement.getContext('2d');
 
 	ctx.width = canvasElement.width;
@@ -19,43 +22,70 @@ function nefuCanvasContext2d(canvasElement) {
 	};
 
 	return ctx;
-}
+};
 
 
-var nfMath = {
-	dist2: function(p1, p2) {
-		return (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y);
+nefu.math = (function(){
+	return {
+		dist2: function(p1, p2) {
+			return (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y);
+		},
+		dist: function(p1, p2) {
+			return Math.sqrt(nfMath.dist2(p1, p2));
+		}
+	};
+})();
+
+
+
+
+nefu.effects.Set = function() {
+	this.effects = new Set();
+};
+nefu.effects.Set.prototype = {
+	update: function(dt) {
+		var effects = this.effects;
+		for(let ef of effects) {
+			ef.update(dt);
+		}
 	},
-	dist: function(p1, p2) {
-		return Math.sqrt(nfMath.dist2(p1, p2));
+	draw: function(ctx) {
+		var effects = this.effects;
+		for(let ef of effects) {
+			ef.draw(ctx);
+		}
 	}
 };
 
 
-function nefuPhysics(canvasElement) {
-	this.objs =  new Set();
+nefu.effects.Empty = function() {
+};
+nefu.effects.Empty.prototype = {
+	update: function(dt) { },
+	draw: function(ctx) { }
+};
+
+
+nefu.effects.Manager = function(canvasElement) {
+	this.effect = new nefu.effects.Empty();
 	this._canvas = canvasElement;
-	this._ctx = nefuCanvasContext2d(canvasElement);
+	this._ctx = nefu.getCanvasContext2d(canvasElement);
 	this._timer = null;
 	this._lastUpdate;
 	this._maxDt = 0.1;
 	this._interval = 10;
-}
-nefuPhysics.prototype = {
+};
+nefu.effects.Manager.prototype = {
 	update: function(dt) {
-		var objs = this.objs;
-		var ctx = this._ctx;
+		return this.effect.update(dt);
+	},
 
-		ctx.clear();
+	draw: function() {
+		this.effect.draw(this._ctx);
+	},
 
-		for(let obj of objs) {
-			var valid = obj.update(dt);
-			if (valid) {
-				obj.draw(ctx);
-			} else {
-				objs.delete(obj);
-			}
-		}
+	clear: function() {
+		this._ctx.clear();
 	},
 
 	tick: function() {
@@ -64,7 +94,11 @@ nefuPhysics.prototype = {
 		dt = Math.min(this._maxDt, dt);
 
 		if (dt == 0) { return; }
-		this.update(dt);
+		this.effect.update(dt);
+
+		var ctx = this._ctx;
+		ctx.clear();
+		this.effect.draw(ctx);
 
 		this._lastUpdate = time;
 	},
@@ -85,64 +119,27 @@ nefuPhysics.prototype = {
 		if (this._timer) {
 			clearInterval(this._timer);
 		}
-	},
-
-	add: function(obj) {
-		this.objs.add(obj);
 	}
 };
 
 
 
+//
+// particle: {x, y, vx, vy, r, alpha}
+//
 
-
-function nfSimpleParticle(opt) {
-	this.x = opt.x;
-	this.y = opt.y;
-	this.vx = opt.vx;
-	this.vy = opt.vy;
-	this.ax = opt.ax;
-	this.ay = opt.ay;
-	this.r = opt.r;
-}
-nfSimpleParticle.prototype = {
-	update: function(dt) {
-		this.vx += this.ax * dt;
-		this.vy += this.ay * dt;
-		this.x += this.vx * dt;
-		this.y += this.vy * dt;
-		return true;
-	},
-
-	draw: function(ctx) {
-		ctx.beginPath();
-		ctx.arc(this.x, this.y, this.r, 0, Math.PI*2, false);
-		ctx.fillStyle = 'black';
-		ctx.fill();
-	}
-};
-
-
-function nfSplineParticles(opt) {
+nefu.effects.SplineParticle = function(opt) {
 	this.option = $.extend({
 		ax: 0,
 		ay: 0,
 		color: 'black',
 		dist: 2,
-		drag: 0.01,
-		default: {
-			x: 0,
-			y: 0,
-			vx: 0,
-			vy: 0,
-			r: 1,
-			alpha: 0
-		}
+		drag: 0.01
 	}, opt);
 
 	this.particles = [];
-}
-nfSplineParticles.prototype = {
+};
+nefu.effects.SplineParticle.prototype = {
 	update: function(dt) {
 		var particles = this.particles;
 		var dvx = this.option.ax * dt,
@@ -171,12 +168,13 @@ nfSplineParticles.prototype = {
 
 	draw: function(ctx) {
 		var particles = this.particles;
+		if (particles.length == 0) { return; }
+
 		var dist = this.option.dist;
 		var dist2 = dist*dist;
-
-		if (particles.length < 2) { return; }
-
 		var q = particles[0];
+
+		this.drawParticle(ctx, q);
 
 		for(var i=0, len=particles.length; i<len-1; i++) {
 			var p0 = particles[i];
@@ -197,10 +195,8 @@ nfSplineParticles.prototype = {
 				var dx = q.x - p0.x,
 						dy = q.y - p0.y;
 
-				/*
-					equation: dist^2 = ( dx - t*vx )^2 + ( dy - t*vy )^2
-					solve for t
-				*/
+				//	equation: dist^2 = ( dx - t*vx )^2 + ( dy - t*vy )^2
+				//	solve for t
 
 				var dx2 = dx*dx,
 						dy2 = dy*dy,
@@ -229,9 +225,176 @@ nfSplineParticles.prototype = {
 	},
 
 	add: function(particle) {
-		this.particles.push(
-			$.extend({}, this.option.default, particle)
-		);
+		this.particles.push(particle);
 	}
 };
+
+
+
+nefu.effects.MilkEmitter = function(opt) {
+	this.option = $.extend({
+		x: 0,
+		y: 0,
+		maxVelocity: 50,
+		startAngle: Math.PI,
+		endAngle: Math.PI*0.95,
+		peakAngleAdd: Math.PI * 0.02,
+		peakDuration: 50,
+		duration: 10000,
+		minRest: 200,
+		maxRest: 1000,
+		ax: 0,
+		ay: 50,
+		color: 'white',
+		dist: 2,
+		drag: 0.01,
+		minDuration: 200,
+		maxDuration: 1500,
+		maxRadius: 5,
+	}, opt);
+
+	this._splines = new Set();
+	this._cur = {};
+	this._isEmitting = false;
+	this._time = 0;
+	this._nextTime = 0;
+
+};
+nefu.effects.MilkEmitter.prototype = {
+	update: function(dt) {
+
+		if (this._isEmitting) {
+			this._emit(dt);
+		}
+		else {
+			if (this._time >= this._nextTime) {
+				this._startEmit();
+			}
+		}
+
+		var splines = this._splines;
+		for(let sp of splines) {
+			sp.update(dt);
+		}
+
+		this._time += dt;
+	},
+	draw: function(ctx) {
+		var splines = this._splines;
+		for(let sp of splines) {
+			sp.draw(ctx);
+		}
+	},
+
+	_startEmit: function() {
+		var opt = this.option,
+				cur = this._cur;
+
+		// Calc power
+		var k = 1 - this._time / opt.duration;
+		if (k < 0) { return; }
+
+		// Create spline
+		var spline = new nefu.effects.SplineParticle({
+			ax: opt.ax,
+			ay: opt.ay,
+			color: opt.color,
+			dist: opt.dist,
+			drag: opt.drag
+		});
+
+		this._splines.add(spline);
+		cur.spline = spline;
+
+
+		// Set duration
+		cur.time = 0;
+		cur.duration = opt.minDuration + (opt.maxDuration - opt.minDuration) * k;
+		var ke = 1 - (this._time + cur.duration) / opt.duration;
+
+		// Set velocity
+		var velocity = opt.maxVelocity * k;
+		cur.velocity = velocity;
+
+		// Set angle
+		var sAngle = opt.startAngle + (opt.endAngle-opt.startAngle) * k;
+		var eAngle = opt.startAngle + (opt.endAngle-opt.startAngle) * ke;
+		var pAngle = opt.peakAngle * k;
+
+		cur.peakT = opt.peakDuration / cur.duration;
+
+		cur.angle0 = sAngle;
+		cur.angle_d0 = pAngle;
+		cur.angle1 = sAngle + pAngle;
+		cur.angle_d1 = eAngle - (sAngle + pAngle);
+
+		// Set radius
+		cur.startRadius = opt.maxRadius;
+		cur.endRadius = 1;
+
+		//
+		this._nextTime = this._time + cur.duration + opt.minRest + (opt.maxRest - opt.minRest) * ke;
+
+		//
+		this._isEmitting = true;
+	},
+
+	_calcAngle: function(t) {
+		var cur = this._cur;
+		if (t <= cur.peakT) {
+			t = t / cur.peakT;
+			return cur.angle0 + cur.angle_d0 * t;
+		} else {
+			t = (t - cur.peakT) / (1 - cur.peakT);
+			return cur.angle1 + cur.angle_d1 * (1 - t);
+		}
+	},
+
+	_calcVelocity: function(t) {
+		return this._cur.velocity;
+	},
+
+	_calcRadius: function(t) {
+		var cur = this._cur;
+		return cur.startRadius + (cur.endRadius - cur.startRadius) * t;
+	},
+
+	_calcAlpha: function(t) {
+		return 1;
+	},
+
+	_emit: function(dt) {
+		var opt = this.option,
+				cur = this._cur;
+
+		cur.time = cur.time + dt;
+
+		if (cur.time > cur.duration) {
+			this._isEmitting = false;
+			return;
+		}
+
+		var t = cur.time / cur.duration;
+
+		var angle = this._calcAngle(t);
+		var velocity = this._calcVelocity(t);
+		var radius = this._calcRadius(t);
+		var alpha = this._calcAlpha(t);
+		var x = opt.x;
+		var y = opt.y;
+
+		var vx = velocity * Math.cos(angle);
+		var vy = velocity * Math.sin(angle);
+
+		cur.spline.add({
+			x: x,
+			y: y,
+			vx: vx,
+			vy: vy,
+			r: radius,
+			alpha: alpha
+		});
+	}
+};
+
 
