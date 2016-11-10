@@ -235,24 +235,25 @@ nefu.effects.MilkEmitter = function(opt) {
 	this.option = $.extend({
 		x: 0,
 		y: 0,
-		maxVelocity: 50,
-		startAngle: Math.PI,
-		endAngle: Math.PI*0.95,
-		peakAngleAdd: Math.PI * 0.02,
-		peakDuration: 50,
-		duration: 10000,
-		minRest: 200,
-		maxRest: 1000,
+		maxVelocity: 600,
+		startAngle: -Math.PI/4,
+		endAngle: (-Math.PI/4)*0.9,
+		peakAngleAdd: -Math.PI * 0.01,
+		peakDuration: 0.100,
+		duration: 10,
+		minRest: 0.200,
+		maxRest: 1.000,
 		ax: 0,
-		ay: 50,
+		ay: 500,
 		color: 'white',
 		dist: 2,
 		drag: 0.01,
-		minDuration: 200,
-		maxDuration: 1500,
+		minDuration: 0.100,
+		maxDuration: 0.500,
 		maxRadius: 5,
 	}, opt);
 
+	this._isStarted = false;
 	this._splines = new Set();
 	this._cur = {};
 	this._isEmitting = false;
@@ -262,6 +263,7 @@ nefu.effects.MilkEmitter = function(opt) {
 };
 nefu.effects.MilkEmitter.prototype = {
 	update: function(dt) {
+		if (!this._isStarted) { return; }
 
 		if (this._isEmitting) {
 			this._emit(dt);
@@ -284,6 +286,20 @@ nefu.effects.MilkEmitter.prototype = {
 		for(let sp of splines) {
 			sp.draw(ctx);
 		}
+	},
+
+	start: function() {
+		this._splines = new Set();
+		this._cur = {};
+		this._isEmitting = false;
+		this._time = 0;
+		this._nextTime = 0;
+		this._isStarted = true;
+	},
+
+	_rand: function(x, a) {
+		var ret = x + x*a*(-1+2*Math.random());
+		return Math.max(0, Math.min(1, ret));
 	},
 
 	_startEmit: function() {
@@ -319,7 +335,7 @@ nefu.effects.MilkEmitter.prototype = {
 		// Set angle
 		var sAngle = opt.startAngle + (opt.endAngle-opt.startAngle) * k;
 		var eAngle = opt.startAngle + (opt.endAngle-opt.startAngle) * ke;
-		var pAngle = opt.peakAngle * k;
+		var pAngle = opt.peakAngleAdd * k;
 
 		cur.peakT = opt.peakDuration / cur.duration;
 
