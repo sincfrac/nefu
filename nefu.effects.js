@@ -219,7 +219,7 @@ nefu.effects.MilkEmitter.prototype = {
 					p.dist = Math.sqrt(dist2);
 
 					// Calculate intermolecular force
-					if (p.dist > 5) {
+					/*if (p.dist > 5) {
 						var dx = pn.x - p.x,
 								dy = pn.y - p.y;
 
@@ -229,7 +229,7 @@ nefu.effects.MilkEmitter.prototype = {
 						p.y += power * dy;
 						pn.x -= power * dx;
 						pn.y -= power * dy;
-					}
+					}*/
 				}
 				else {
 					p.dist = 0;
@@ -245,7 +245,6 @@ nefu.effects.MilkEmitter.prototype = {
 
 				p.avgDist = avg;
 				p.radius = opt.radius * (1 - Math.min(1, avg / opt.distMax)) * p.density;
-				p.split = false;//p.split || avg >= opt.distSplit;
 			}
 		}
 
@@ -271,49 +270,19 @@ nefu.effects.MilkEmitter.prototype = {
 				var alpha = opt.alpha * galpha;
 				var dist = p1.avgDist;
 
-				if (!p1.split) {
-					var du = opt.dist / dist;
-					for (var u=0; u<1; u+=du) {
-						var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
-								y = nefu.math.bspline(u, p0.y, p1.y, p2.y),
-								radius = nefu.math.bspline(u, p0.radius, p1.radius, p2.radius);
+				var du = opt.dist / dist;
+				for (var u=0; u<1; u+=du) {
+					var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
+							y = nefu.math.bspline(u, p0.y, p1.y, p2.y),
+							radius = nefu.math.bspline(u, p0.radius, p1.radius, p2.radius);
 
-						var r = Math.max(0.1, radius);
+					var r = Math.max(0.1, radius);
 
-						ctx.beginPath();
-						ctx.fillStyle = opt.color;
-						ctx.arc(x, y, r, 0, Math.PI*2, false);
-						ctx.globalAlpha = alpha;
-						ctx.fill();
-					}
-				}
-				else {
-					var k = 0.5 + 0.5*Math.min(1, (dist-distSplit)/5);	// ToDo: parameter
-
-					for (var d=0; d<dist; d+=opt.dist) {
-						var u = d / dist;
-						var x, y, radius, r;
-						var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
-								y = nefu.math.bspline(u, p0.y, p1.y, p2.y),
-								radius = nefu.math.bspline(u, p0.radius, p1.radius, p2.radius);
-
-						if (u < 0.5) {
-							if (d >= distSplit/2) continue;
-							r = Math.min(1, d / (distSplit/2));
-						}
-						else {
-							if (dist-d >= distSplit/2) continue;
-							r = Math.min(1, (dist-d) / (distSplit/2));
-						}
-
-						r = Math.max(0.1, Math.max(opt.minRadius*r*k, radius));
-
-						ctx.beginPath();
-						ctx.fillStyle = opt.color;
-						ctx.arc(x, y, r, 0, Math.PI*2, false);
-						ctx.globalAlpha = alpha;
-						ctx.fill();
-					}
+					ctx.beginPath();
+					ctx.fillStyle = opt.color;
+					ctx.arc(x, y, r, 0, Math.PI*2, false);
+					ctx.globalAlpha = alpha;
+					ctx.fill();
 				}
 			}
 		}
@@ -366,7 +335,7 @@ nefu.effects.MilkEmitter.prototype = {
 			power: {
 				bias: 0.8,
 				max: 0.2,
-				sus: -0.5,
+				sus: -0.3,
 				rel: -0.8,
 				rnd: 0.1
 			}
@@ -375,13 +344,11 @@ nefu.effects.MilkEmitter.prototype = {
 		var t = this._t;
 		var power = this._calcADSR(t, conf.timing, conf.power);
 
-		var interval = 0.800 + 2.000*(1-power);
-		var interval = (1-0.4*Math.random()) * interval;
+		var interval = 1.200 + 2.000*(1-power);
+		interval = (1-0.4*Math.random()) * interval;
 		var velocity = opt.velocity * power;
-		var dur = (1-0.5*power) * (1-0.4*Math.random());
-		var maxVelocity = (1-0.5*power) * (1-0.3*Math.random());
+		var maxVelocity = 0.6+power*0.4;
 		var density = (1-0.5*power);
-		var rel = 1-0.8*power;
 
 		this._emitOneShot({
 			x: opt.x,
@@ -408,18 +375,19 @@ nefu.effects.MilkEmitter.prototype = {
 				rnd: 0.2
 			},
 			interval: {
-				bias: 0.02,
+				bias: 0.05+(1-power)*0.05,
 				max: 0,
 				sus: 0,
-				rel: 0.02,
+				rel: 0,//0.05+(1-power)*0.05,
 				rnd: 0
 			},
 			timing: {
 				delay: 0,
-				att: 0.05*dur,
-				dec: 0.2*dur,
+				att: 0.1,//*(1-0.1*power),
+				dec: 0.2,//*(1-0.1*power),
 				sus: 0,
-				rel: 0.8*dur*rel
+				rel: 0.5*Math.max(0, 0.9-power),
+				rst: 0.4*Math.max(0, 0.9-power)
 			}
 		});
 
@@ -455,13 +423,13 @@ nefu.effects.MilkEmitter.prototype = {
 		var particles = [];
 		var opt = this.option;
 
-		var dur = conf.timing.delay + conf.timing.att + conf.timing.dec + conf.timing.sus + conf.timing.rel;
+		var dur = conf.timing.delay + conf.timing.att + conf.timing.dec + conf.timing.sus + conf.timing.rel + conf.timing.rst;
 
 		var t = 0;
 		while (t < dur) {
 			var interval = this._calcADSR(t, conf.timing, conf.interval);
 
-			if (Math.random() < 0.2 && particles.length > 0) {
+			/*if (Math.random() < 0.2 && particles.length > 0) {
 				this._groups.add({
 					life: opt.life,
 					particles: particles
@@ -469,7 +437,7 @@ nefu.effects.MilkEmitter.prototype = {
 
 				particles = [];
 				interval = 0.01;
-			}
+			}*/
 
 			var ang = this._calcADSR(t, conf.timing, conf.angle) * (1-conf.angle.rnd*Math.random());
 			var vel = this._calcADSR(t, conf.timing, conf.velocity) * (1-conf.velocity.rnd*Math.random());
