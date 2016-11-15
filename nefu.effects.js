@@ -228,6 +228,52 @@ nefu.effects.MilkEmitter.prototype = {
 				p.avgDist = avg;
 				p.split = p.split || avg >= opt.distSplit;
 				p.radius = opt.radius * (1 - Math.min(1, avg / opt.distSplit)) * p.density;
+
+				if (i>0 && i<len-1 && avg >= opt.distSplit) {
+					var u = 0.3;
+					var x0 = nefu.math.bspline(u, particles[i-1].x, p.x, particles[i+1].x),
+							y0 = nefu.math.bspline(u, particles[i-1].y, p.y, particles[i+1].y),
+							radius0 = nefu.math.bspline(u, particles[i-1].radius, p.radius, particles[i+1].radius);
+
+					var p0 = {
+						x: x0,
+						y: y0,
+						vx: p.vx,
+						vy: p.vy,
+						density: p.density/2,
+						wait: 0,
+						avgDist: particles[i-1].dist
+					};
+
+					p0.radius = opt.radius * (1 - Math.min(1, p0.avgDist / opt.distSplit)) * p0.density;
+
+					var arr0 = particles.slice(0, i);
+					arr0.push(p0);
+
+					var u = 0.7;
+					var x1 = nefu.math.bspline(u, particles[i-1].x, p.x, particles[i+1].x),
+							y1 = nefu.math.bspline(u, particles[i-1].y, p.y, particles[i+1].y),
+							radius1 = nefu.math.bspline(u, particles[i-1].radius, p.radius, particles[i+1].radius);
+
+
+					var arr1 = particles.slice(i);
+					p.x = x1;
+					p.y = y1;
+					p.radius = radius1;
+					p.density = p.density/2;
+					p.avgDist = p.dist;
+
+					p.radius = opt.radius * (1 - Math.min(1, p.avgDist / opt.distSplit)) * p.density;
+
+
+					g.particles = arr0;
+					groups.add({
+						particles: arr1,
+						life: g.life
+					});
+
+					break;
+				}
 			}
 		}
 	},
@@ -251,7 +297,7 @@ nefu.effects.MilkEmitter.prototype = {
 				var dist = p1.avgDist;
 				var alpha = opt.alpha * galpha;
 
-				if (!p1.split) {
+				//if (!p1.split) {
 					var du = opt.dist / dist;
 					for (var u=0; u<1; u+=du) {
 						var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
@@ -266,8 +312,8 @@ nefu.effects.MilkEmitter.prototype = {
 						ctx.globalAlpha = alpha;
 						ctx.fill();
 					}
-				}
-				else {
+				//}
+				/*else {
 					var k = 0.5 + 0.5*Math.min(1, (dist-distSplit)/5);	// ToDo: parameter
 
 					for (var d=0; d<dist; d+=opt.dist) {
@@ -299,7 +345,7 @@ nefu.effects.MilkEmitter.prototype = {
 						ctx.globalAlpha = alpha;
 						ctx.fill();
 					}
-				}
+				}*/
 
 				if (opt.debug) {
 					ctx.beginPath();
