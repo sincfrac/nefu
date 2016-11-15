@@ -31,7 +31,10 @@ nefu.math = (function(){
 			return (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y);
 		},
 		dist: function(p1, p2) {
-			return Math.sqrt(nfMath.dist2(p1, p2));
+			return Math.sqrt(nefu.math.dist2(p1, p2));
+		},
+		bspline: function(t, x0, x1, x2) {
+			return 0.5*(x1+x0) + t*(x1-x0) + 0.5*t*t*(x2-2.0*x1+x0);
 		}
 	};
 })();
@@ -124,110 +127,9 @@ nefu.effects.Manager.prototype = {
 
 
 
-//
-// particle: {x, y, vx, vy, r, alpha}
-//
 
-nefu.effects.SplineParticle = function(opt) {
-	this.option = $.extend({
-		ax: 0,
-		ay: 0,
-		color: 'black',
-		dist: 2,
-		drag: 0.01
-	}, opt);
 
-	this.particles = [];
-};
-nefu.effects.SplineParticle.prototype = {
-	update: function(dt) {
-		var particles = this.particles;
-		var dvx = this.option.ax * dt,
-				dvy = this.option.ay * dt,
-				ddt = this.option.drag * dt;
 
-		for(var i=0, len=particles.length; i<len; i++) {
-			var p = particles[i];
-			var v = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
-			p.vx += dvx - v*p.vx*ddt;
-			p.vy += dvy - v*p.vy*ddt;
-			p.x += p.vx * dt;
-			p.y += p.vy * dt;
-		}
-
-		return true;
-	},
-
-	drawParticle: function(ctx, p) {
-		ctx.beginPath();
-		ctx.arc(p.x, p.y, p.r, 0, Math.PI*2, false);
-		ctx.fillStyle = this.option.color;
-		ctx.globalAlpha = p.alpha;
-		ctx.fill();
-	},
-
-	draw: function(ctx) {
-		var particles = this.particles;
-		if (particles.length == 0) { return; }
-
-		var dist = this.option.dist;
-		var dist2 = dist*dist;
-		var q = particles[0];
-
-		this.drawParticle(ctx, q);
-
-		for(var i=0, len=particles.length; i<len-1; i++) {
-			var p0 = particles[i];
-			var p1 = particles[i+1];
-
-			var vx = p1.x - p0.x,
-					vy = p1.y - p0.y,
-					vr = p1.r - p0.r,
-					va = p1.alpha - p0.alpha;
-
-			var vx2 = vx*vx,
-					vy2 = vy*vy;
-
-			var L2 = vx2 + vy2;
-			var dd = dist2*(vx2 + vy2);
-
-			while(true) {
-				var dx = q.x - p0.x,
-						dy = q.y - p0.y;
-
-				//	equation: dist^2 = ( dx - t*vx )^2 + ( dy - t*vy )^2
-				//	solve for t
-
-				var dx2 = dx*dx,
-						dy2 = dy*dy,
-						dxvx = dx*vx,
-						dyvy = dy*vy;
-
-				var D2 = 2*(dxvx*dyvy) - (dx2*vy2 + dy2*vx2) + dd;
-				var D = Math.sqrt(D2);
-				var b = dxvx + dyvy;
-				var t = (D + b) / L2;
-
-				if (t >= 0 && t < 1) {
-					q = {
-						x: p0.x + t*vx,
-						y: p0.y + t*vy,
-						r: p0.r + t*vr,
-						alpha: p0.alpha + t*va
-					};
-					this.drawParticle(ctx, q);
-				}
-				else {
-					break;
-				}
-			}
-		}
-	},
-
-	add: function(particle) {
-		this.particles.push(particle);
-	}
-};
 
 
 
@@ -235,180 +137,281 @@ nefu.effects.MilkEmitter = function(opt) {
 	this.option = $.extend({
 		x: 0,
 		y: 0,
-		maxVelocity: 600,
-		startAngle: -Math.PI/4,
-		endAngle: (-Math.PI/4)*0.9,
-		peakAngleAdd: -Math.PI * 0.01,
-		peakDuration: 0.100,
-		duration: 10,
-		minRest: 0.200,
-		maxRest: 1.000,
 		ax: 0,
-		ay: 500,
+		ay: 300,
 		color: 'white',
-		dist: 2,
 		drag: 0.01,
-		minDuration: 0.100,
-		maxDuration: 0.500,
-		maxRadius: 5,
+		alpha: 1,
+		radius: 2,
+		minRadius: 1,
+		life: 3.000,
+		velocity: 600,
+		angle: Math.PI*7/4,
+		angleA: -Math.PI/8,
+		angleD: +Math.PI/16,
+		fadeOutDuration: 1.00,
+		distSplit: 18,
+		dist: 1
 	}, opt);
 
+	this._groups = new Set();
+
 	this._isStarted = false;
-	this._splines = new Set();
-	this._cur = {};
-	this._isEmitting = false;
-	this._time = 0;
-	this._nextTime = 0;
+	this._waitEmit = 0;
 
 };
 nefu.effects.MilkEmitter.prototype = {
 	update: function(dt) {
 		if (!this._isStarted) { return; }
 
-		if (this._isEmitting) {
+		this._waitEmit -= dt;
+		if (this._waitEmit <= 0) {
 			this._emit(dt);
 		}
-		else {
-			if (this._time >= this._nextTime) {
-				this._startEmit();
+
+		var groups = this._groups,
+				opt = this.option;
+
+		var dvx = opt.ax * dt,
+				dvy = opt.ay * dt,
+				ddt = opt.drag * dt;
+
+		for (let g of groups) {
+			var particles = g.particles;
+
+			g.life -= dt;
+			if (g.life <= 0) {
+				groups.delete(g);
+				continue;
+			}
+
+			var q = null;
+			for (var i=0, len=particles.length; i<len; i++) {
+				var p = particles[i];
+				var dt_ = dt;
+
+				if (p.wait > 0) {
+					p.wait -= dt;
+					
+					if (p.wait < 0) {
+						dt_ += p.wait;
+						p.wait = 0;
+					}
+					else {
+						continue;
+					}
+				}
+
+				// Update velocity, position
+				var v = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+				p.vx += dvx - v*p.vx*ddt;
+				p.vy += dvy - v*p.vy*ddt;
+				p.x += p.vx * dt_;
+				p.y += p.vy * dt_;
+
+				// Update distance
+				if (q) {
+					var dist = nefu.math.dist(q, p);
+					q.dist = dist;
+				}
+				q = p;
+			}
+			particles[particles.length-1].dist = 0;
+
+
+			for (var i=0, len=particles.length; i<len; i++) {
+				var p = particles[i];
+				var avg = i==0 ? p.dist : 
+									i==len-1 ? particles[i-1].dist :
+									(p.dist + particles[i-1].dist) / 2;
+
+				p.avgDist = avg;
+				p.split = p.split || avg >= opt.distSplit;
+				p.radius = opt.radius * (1 - Math.min(1, avg / opt.distSplit)) * p.density;
 			}
 		}
-
-		var splines = this._splines;
-		for(let sp of splines) {
-			sp.update(dt);
-		}
-
-		this._time += dt;
 	},
+
 	draw: function(ctx) {
-		var splines = this._splines;
-		for(let sp of splines) {
-			sp.draw(ctx);
+		var groups = this._groups,
+				opt = this.option,
+				distSplit = opt.distSplit;
+
+		for (let g of groups) {
+			var particles = g.particles;
+			var galpha = g.life < opt.fadeOutDuration ? g.life / opt.fadeOutDuration : 1;
+
+			for (var i=0, len=particles.length; i<len; i++) {
+				var p1 = particles[i];
+				if (p1.wait > 0) { break; }
+
+				var p0 = particles[Math.max(0,i-1)];
+				var p2 = particles[Math.min(len-1,i+1)];
+
+				var dist = p1.avgDist;
+				var alpha = opt.alpha * galpha;
+
+				if (!p1.split) {
+					var du = opt.dist / dist;
+					for (var u=0; u<1; u+=du) {
+						var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
+								y = nefu.math.bspline(u, p0.y, p1.y, p2.y),
+								radius = nefu.math.bspline(u, p0.radius, p1.radius, p2.radius);
+
+						var r = Math.max(0.1, radius);
+
+						ctx.beginPath();
+						ctx.fillStyle = opt.color;
+						ctx.arc(x, y, r, 0, Math.PI*2, false);
+						ctx.globalAlpha = alpha;
+						ctx.fill();
+					}
+				}
+				else {
+					var k = 0.5 + 0.5*Math.min(1, (dist-distSplit)/5);	// ToDo: parameter
+
+					for (var d=0; d<dist; d+=opt.dist) {
+						var u = d / dist;
+						var x, y, radius, r;
+
+						if (u < 0.5) {
+							var x = nefu.math.bspline(u, p0.x, p1.x, p1.x),
+									y = nefu.math.bspline(u, p0.y, p1.y, p1.y),
+									radius = nefu.math.bspline(u, p0.radius, p1.radius, p1.radius);
+
+							if (d >= distSplit/2) continue;
+							var r = Math.min(1, d / (distSplit/2));
+						}
+						else {
+							var x = nefu.math.bspline(u, p1.x, p1.x, p2.x),
+									y = nefu.math.bspline(u, p1.y, p1.y, p2.y),
+									radius = nefu.math.bspline(u, p1.radius, p1.radius, p2.radius);
+
+							if (dist-d >= distSplit/2) continue;
+							var r = Math.min(1, (dist-d) / (distSplit/2));
+						}
+
+						r = Math.max(0.1, Math.max(opt.minRadius*r*k, radius));
+
+						ctx.beginPath();
+						ctx.fillStyle = opt.color;
+						ctx.arc(x, y, r, 0, Math.PI*2, false);
+						ctx.globalAlpha = alpha;
+						ctx.fill();
+					}
+				}
+
+				if (opt.debug) {
+					ctx.beginPath();
+					ctx.fillStyle = 'rgba(255,0,0,0.5)';
+					ctx.arc(p1.x, p1.y, 1, 0, Math.PI*2, false);
+					ctx.globalAlpha = alpha;
+					ctx.fill();
+
+					ctx.beginPath();
+					ctx.moveTo(p0.x, p0.y);
+					ctx.lineTo(p1.x, p1.y);
+					ctx.strokeStyle = 'rgba(255,0,0,0.5)';
+					ctx.stroke();
+				}
+			}
 		}
 	},
 
 	start: function() {
-		this._splines = new Set();
-		this._cur = {};
-		this._isEmitting = false;
-		this._time = 0;
-		this._nextTime = 0;
 		this._isStarted = true;
 	},
 
-	_rand: function(x, a) {
-		var ret = x + x*a*(-1+2*Math.random());
-		return Math.max(0, Math.min(1, ret));
-	},
+	_emit: function(dt) {
+		var opt = this.option;
 
-	_startEmit: function() {
-		var opt = this.option,
-				cur = this._cur;
+		/*
+			velocity: ADSR
+			angle: ADSR
+			density: ADSR
+			timing: ADSR
+		*/
 
-		// Calc power
-		var k = 1 - this._time / opt.duration;
-		if (k < 0) { return; }
-
-		// Create spline
-		var spline = new nefu.effects.SplineParticle({
-			ax: opt.ax,
-			ay: opt.ay,
-			color: opt.color,
-			dist: opt.dist,
-			drag: opt.drag
+		this._emitOneShot({
+			x: opt.x,
+			y: opt.y,
+			velocity: opt.velocity,
+			velocityA: 100,
+			velocityD: -200,
+			angle: opt.angle,
+			angleA: opt.angleA,
+			angleD: opt.angleD,
+			duration: 0.30,
+			durationA: 0.150,
+			interval: 0.020,
+			intervalDeviation: 0.02
 		});
 
-		this._splines.add(spline);
-		cur.spline = spline;
-
-
-		// Set duration
-		cur.time = 0;
-		cur.duration = opt.minDuration + (opt.maxDuration - opt.minDuration) * k;
-		var ke = 1 - (this._time + cur.duration) / opt.duration;
-
-		// Set velocity
-		var velocity = opt.maxVelocity * k;
-		cur.velocity = velocity;
-
-		// Set angle
-		var sAngle = opt.startAngle + (opt.endAngle-opt.startAngle) * k;
-		var eAngle = opt.startAngle + (opt.endAngle-opt.startAngle) * ke;
-		var pAngle = opt.peakAngleAdd * k;
-
-		cur.peakT = opt.peakDuration / cur.duration;
-
-		cur.angle0 = sAngle;
-		cur.angle_d0 = pAngle;
-		cur.angle1 = sAngle + pAngle;
-		cur.angle_d1 = eAngle - (sAngle + pAngle);
-
-		// Set radius
-		cur.startRadius = opt.maxRadius;
-		cur.endRadius = 1;
-
-		//
-		this._nextTime = this._time + cur.duration + opt.minRest + (opt.maxRest - opt.minRest) * ke;
-
-		//
-		this._isEmitting = true;
+		this._waitEmit = 1.500;
 	},
 
-	_calcAngle: function(t) {
-		var cur = this._cur;
-		if (t <= cur.peakT) {
-			t = t / cur.peakT;
-			return cur.angle0 + cur.angle_d0 * t;
-		} else {
-			t = (t - cur.peakT) / (1 - cur.peakT);
-			return cur.angle1 + cur.angle_d1 * (1 - t);
+	_calcADSR: function(t, timing, val) {
+		if (t < timing.att) {
+			return val.bias
+							+ val.att * (t/timing.att);
 		}
+		if (t < timing.dec) {
+			return val.bias + val.att
+							+ (val.dec-val.att) * (t-timing.att) / (timing.dec-timing.att);
+		}
+		if (t < timing.sus) {
+			return val.bias + val.sus;
+		}
+		if (t <= timing.rel) {
+			return val.bias + val.sus
+							+ (val.rel-val.sus) * (t-timing.sus) / (timing.rel-timing.sus);
+		}
+		return val.bias;
 	},
 
-	_calcVelocity: function(t) {
-		return this._cur.velocity;
-	},
+	_emitOneShot: function(conf) {
+		var particles = [];
+		var opt = this.option;
 
-	_calcRadius: function(t) {
-		var cur = this._cur;
-		return cur.startRadius + (cur.endRadius - cur.startRadius) * t;
-	},
+		var durA = conf.durationA,
+				durD = conf.duration - conf.durationA;
 
-	_calcAlpha: function(t) {
-		return 1;
-	},
+		var t = 0;
+		while (t < conf.duration) {
+			var interval = conf.interval + conf.intervalDeviation * (2*Math.random()-1);
 
-	_emit: function(dt) {
-		var opt = this.option,
-				cur = this._cur;
+			var angle;
+			var velocity;
 
-		cur.time = cur.time + dt;
+			if (t < durA) {
+				var k = t / durA + Math.random()*0.2;
+				angle = conf.angle + conf.angleA * k;
+				velocity = conf.velocity + conf.velocityA * k;
+			}
+			else {
+				var k = (t-durA) / durD + Math.random()*0.2;
+				angle = conf.angle + conf.angleA + conf.angleD * k;
+				velocity = conf.velocity + conf.velocityA + conf.velocityD * k;
+			}
 
-		if (cur.time > cur.duration) {
-			this._isEmitting = false;
-			return;
+			var vx = velocity * Math.cos(angle);
+			var vy = velocity * Math.sin(angle);
+
+			particles.push({
+				wait: t,
+				x: conf.x,
+				y: conf.y,
+				vx: vx,
+				vy: vy,
+				density: 1
+			});
+
+			t += interval;
 		}
 
-		var t = cur.time / cur.duration;
-
-		var angle = this._calcAngle(t);
-		var velocity = this._calcVelocity(t);
-		var radius = this._calcRadius(t);
-		var alpha = this._calcAlpha(t);
-		var x = opt.x;
-		var y = opt.y;
-
-		var vx = velocity * Math.cos(angle);
-		var vy = velocity * Math.sin(angle);
-
-		cur.spline.add({
-			x: x,
-			y: y,
-			vx: vx,
-			vy: vy,
-			r: radius,
-			alpha: alpha
+		this._groups.add({
+			life: opt.life,
+			particles: particles
 		});
 	}
 };
