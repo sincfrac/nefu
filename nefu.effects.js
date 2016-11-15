@@ -150,8 +150,10 @@ nefu.effects.MilkEmitter = function(opt) {
 		angleA: -Math.PI/8,
 		angleD: +Math.PI/16,
 		fadeOutDuration: 1.00,
-		distSplit: 18,
-		dist: 1
+		distMax: 18,
+		distSplit: 25,
+		dist: 1,
+		attraction: 150
 	}, opt);
 
 	this._groups = new Set();
@@ -185,9 +187,10 @@ nefu.effects.MilkEmitter.prototype = {
 				continue;
 			}
 
-			var q = null;
 			for (var i=0, len=particles.length; i<len; i++) {
 				var p = particles[i];
+				var pn = i<len-1 ? particles[i+1] : null;
+
 				var dt_ = dt;
 
 				if (p.wait > 0) {
@@ -209,14 +212,28 @@ nefu.effects.MilkEmitter.prototype = {
 				p.x += p.vx * dt_;
 				p.y += p.vy * dt_;
 
-				// Update distance
-				if (q) {
-					var dist = nefu.math.dist(q, p);
-					q.dist = dist;
+				if (pn) {
+					// Update distance
+					var dist2 = nefu.math.dist2(p, pn);
+					p.dist = Math.sqrt(dist2);
+
+					// Calculate intermolecular force
+					if (p.dist > 5) {
+						var dx = pn.x - p.x,
+								dy = pn.y - p.y;
+
+						// ToDo: 加速度なので速度に加算すべき
+						var power = opt.attraction * p.density * pn.density / dist2 * dt_;
+						p.x += power * dx;
+						p.y += power * dy;
+						pn.x -= power * dx;
+						pn.y -= power * dy;
+					}
 				}
-				q = p;
+				else {
+					p.dist = 0;
+				}
 			}
-			particles[particles.length-1].dist = 0;
 
 
 			for (var i=0, len=particles.length; i<len; i++) {
@@ -226,47 +243,39 @@ nefu.effects.MilkEmitter.prototype = {
 									(p.dist + particles[i-1].dist) / 2;
 
 				p.avgDist = avg;
-				p.split = p.split || avg >= opt.distSplit;
-				p.radius = opt.radius * (1 - Math.min(1, avg / opt.distSplit)) * p.density;
+				p.radius = opt.radius * (1 - Math.min(1, avg / opt.distMax)) * p.density;
 
 				if (i>0 && i<len-1 && avg >= opt.distSplit) {
-					var u = 0.3;
-					var x0 = nefu.math.bspline(u, particles[i-1].x, p.x, particles[i+1].x),
-							y0 = nefu.math.bspline(u, particles[i-1].y, p.y, particles[i+1].y),
-							radius0 = nefu.math.bspline(u, particles[i-1].radius, p.radius, particles[i+1].radius);
+					var p0 = particles[i-1],
+							p2 = particles[i+1];
 
-					var p0 = {
-						x: x0,
-						y: y0,
-						vx: p.vx,
-						vy: p.vy,
-						density: p.density/2,
-						wait: 0,
-						avgDist: particles[i-1].dist
-					};
+					var u = 0.4;
+					var pp = {};
+					pp.x  = nefu.math.bspline(u, p0.x,  p.x,  p2.x);
+					pp.y  = nefu.math.bspline(u, p0.y,  p.y,  p2.y),
+					pp.vx = nefu.math.bspline(u, p0.vx, p.vx, p2.vx);
+					pp.vy = nefu.math.bspline(u, p0.vy, p.vy, p2.vy);
 
-					p0.radius = opt.radius * (1 - Math.min(1, p0.avgDist / opt.distSplit)) * p0.density;
+					pp.density = p.density/2;
+					pp.wait = 0;
+					pp.avgDist = p0.dist;
+					pp.radius = opt.radius * (1 - Math.min(1, pp.avgDist / opt.distMax)) * pp.density;
 
 					var arr0 = particles.slice(0, i);
-					arr0.push(p0);
+					arr0.push(pp);
+					g.particles = arr0;
 
-					var u = 0.7;
-					var x1 = nefu.math.bspline(u, particles[i-1].x, p.x, particles[i+1].x),
-							y1 = nefu.math.bspline(u, particles[i-1].y, p.y, particles[i+1].y),
-							radius1 = nefu.math.bspline(u, particles[i-1].radius, p.radius, particles[i+1].radius);
-
-
-					var arr1 = particles.slice(i);
-					p.x = x1;
-					p.y = y1;
-					p.radius = radius1;
+					var u = 0.6;
+					p.x  = nefu.math.bspline(u, p0.x,  p.x,  p2.x);
+					p.y  = nefu.math.bspline(u, p0.y,  p.y,  p2.y);
+					p.vx = nefu.math.bspline(u, p0.vx, p.vx, p2.vx);
+					p.vy = nefu.math.bspline(u, p0.vy, p.vy, p2.vy);
+					
 					p.density = p.density/2;
 					p.avgDist = p.dist;
+					p.radius = opt.radius * (1 - Math.min(1, p.avgDist / opt.distMax)) * p.density;
 
-					p.radius = opt.radius * (1 - Math.min(1, p.avgDist / opt.distSplit)) * p.density;
-
-
-					g.particles = arr0;
+					var arr1 = particles.slice(i);
 					groups.add({
 						particles: arr1,
 						life: g.life
@@ -294,72 +303,50 @@ nefu.effects.MilkEmitter.prototype = {
 				var p0 = particles[Math.max(0,i-1)];
 				var p2 = particles[Math.min(len-1,i+1)];
 
-				var dist = p1.avgDist;
 				var alpha = opt.alpha * galpha;
 
-				//if (!p1.split) {
-					var du = opt.dist / dist;
-					for (var u=0; u<1; u+=du) {
-						var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
-								y = nefu.math.bspline(u, p0.y, p1.y, p2.y),
-								radius = nefu.math.bspline(u, p0.radius, p1.radius, p2.radius);
+				var du = opt.dist / p1.avgDist;
+				for (var u=0; u<1; u+=du) {
+					var x = nefu.math.bspline(u, p0.x, p1.x, p2.x),
+							y = nefu.math.bspline(u, p0.y, p1.y, p2.y),
+							r = nefu.math.bspline(u, p0.radius, p1.radius, p2.radius);
 
-						var r = Math.max(0.1, radius);
+					r = Math.max(0.1, r);
 
-						ctx.beginPath();
-						ctx.fillStyle = opt.color;
-						ctx.arc(x, y, r, 0, Math.PI*2, false);
-						ctx.globalAlpha = alpha;
-						ctx.fill();
-					}
-				//}
-				/*else {
-					var k = 0.5 + 0.5*Math.min(1, (dist-distSplit)/5);	// ToDo: parameter
-
-					for (var d=0; d<dist; d+=opt.dist) {
-						var u = d / dist;
-						var x, y, radius, r;
-
-						if (u < 0.5) {
-							var x = nefu.math.bspline(u, p0.x, p1.x, p1.x),
-									y = nefu.math.bspline(u, p0.y, p1.y, p1.y),
-									radius = nefu.math.bspline(u, p0.radius, p1.radius, p1.radius);
-
-							if (d >= distSplit/2) continue;
-							var r = Math.min(1, d / (distSplit/2));
-						}
-						else {
-							var x = nefu.math.bspline(u, p1.x, p1.x, p2.x),
-									y = nefu.math.bspline(u, p1.y, p1.y, p2.y),
-									radius = nefu.math.bspline(u, p1.radius, p1.radius, p2.radius);
-
-							if (dist-d >= distSplit/2) continue;
-							var r = Math.min(1, (dist-d) / (distSplit/2));
-						}
-
-						r = Math.max(0.1, Math.max(opt.minRadius*r*k, radius));
-
-						ctx.beginPath();
-						ctx.fillStyle = opt.color;
-						ctx.arc(x, y, r, 0, Math.PI*2, false);
-						ctx.globalAlpha = alpha;
-						ctx.fill();
-					}
-				}*/
-
-				if (opt.debug) {
 					ctx.beginPath();
-					ctx.fillStyle = 'rgba(255,0,0,0.5)';
-					ctx.arc(p1.x, p1.y, 1, 0, Math.PI*2, false);
+					ctx.fillStyle = opt.color;
+					ctx.arc(x, y, r, 0, Math.PI*2, false);
 					ctx.globalAlpha = alpha;
 					ctx.fill();
-
-					ctx.beginPath();
-					ctx.moveTo(p0.x, p0.y);
-					ctx.lineTo(p1.x, p1.y);
-					ctx.strokeStyle = 'rgba(255,0,0,0.5)';
-					ctx.stroke();
 				}
+			}
+		}
+
+		//this._drawDebug(ctx);
+	},
+
+	_drawDebug: function(ctx) {
+		var groups = this._groups;
+
+		ctx.fillStyle = 'red';
+		ctx.strokeStyle = 'red';
+		ctx.globalAlpha = 0.5;
+
+		for (let g of groups) {
+			var particles = g.particles;
+
+			for (var i=0, len=particles.length; i<len-1; i++) {
+				var p0 = particles[i];
+				var p1 = particles[i+1];
+
+				ctx.beginPath();
+				ctx.arc(p1.x, p1.y, 1, 0, Math.PI*2, false);
+				ctx.fill();
+
+				ctx.beginPath();
+				ctx.moveTo(p0.x, p0.y);
+				ctx.lineTo(p1.x, p1.y);
+				ctx.stroke();
 			}
 		}
 	},
@@ -382,8 +369,8 @@ nefu.effects.MilkEmitter.prototype = {
 			x: opt.x,
 			y: opt.y,
 			velocity: opt.velocity,
-			velocityA: 100,
-			velocityD: -200,
+			velocityA: 300,
+			velocityD: -400,
 			angle: opt.angle,
 			angleA: opt.angleA,
 			angleD: opt.angleD,
