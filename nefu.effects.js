@@ -245,7 +245,7 @@ nefu.effects.MilkEmitter.prototype = {
 
 				p.avgDist = avg;
 				p.radius = opt.radius * (1 - Math.min(1, avg / opt.distMax)) * p.density;
-				p.split = p.split || avg >= opt.distSplit;
+				p.split = false;//p.split || avg >= opt.distSplit;
 			}
 		}
 
@@ -461,6 +461,16 @@ nefu.effects.MilkEmitter.prototype = {
 		while (t < dur) {
 			var interval = this._calcADSR(t, conf.timing, conf.interval);
 
+			if (Math.random() < 0.2 && particles.length > 0) {
+				this._groups.add({
+					life: opt.life,
+					particles: particles
+				});
+
+				particles = [];
+				interval = 0.01;
+			}
+
 			var ang = this._calcADSR(t, conf.timing, conf.angle) * (1-conf.angle.rnd*Math.random());
 			var vel = this._calcADSR(t, conf.timing, conf.velocity) * (1-conf.velocity.rnd*Math.random());
 			var den = this._calcADSR(t, conf.timing, conf.density) * (1-conf.density.rnd*Math.random());
@@ -468,6 +478,7 @@ nefu.effects.MilkEmitter.prototype = {
 			var vx = vel * Math.cos(ang);
 			var vy = vel * Math.sin(ang);
 
+			t += interval;
 			particles.push({
 				wait: t,
 				x: conf.x,
@@ -478,16 +489,6 @@ nefu.effects.MilkEmitter.prototype = {
 				dist: 0
 			});
 
-			if (Math.random() < 0.2 && particles.length > 0) {
-				this._groups.add({
-					life: opt.life,
-					particles: particles
-				});
-
-				particles = [];
-			}
-
-			t += interval;
 		}
 
 		if (particles.length > 0) {
