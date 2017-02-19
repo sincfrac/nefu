@@ -138,7 +138,7 @@ nefu.effects.MilkEmitter = function(opt) {
 		x: 0,
 		y: 0,
 		ax: 0,
-		ay: 500,
+		ay: 1500,
 		color: 'white',
 		drag: 0.003,
 		alpha: 1,
@@ -386,8 +386,8 @@ nefu.effects.MilkEmitter.prototype = {
 				att: 0.1,//*(1-0.1*power),
 				dec: 0.2,//*(1-0.1*power),
 				sus: 0,
-				rel: 0.5*Math.max(0, 0.9-power),
-				rst: 0.4*Math.max(0, 0.9-power)
+				rel: 0.5*Math.max(0, 1.0-power),
+				rst: 0,//0.4*Math.max(0, 0.9-power)
 			}
 		});
 
@@ -424,39 +424,62 @@ nefu.effects.MilkEmitter.prototype = {
 		var opt = this.option;
 
 		var dur = conf.timing.delay + conf.timing.att + conf.timing.dec + conf.timing.sus + conf.timing.rel + conf.timing.rst;
+		var lstVel = 0;
 
 		var t = 0;
 		while (t < dur) {
 			var interval = this._calcADSR(t, conf.timing, conf.interval);
 
-			/*if (Math.random() < 0.2 && particles.length > 0) {
-				this._groups.add({
-					life: opt.life,
-					particles: particles
-				});
-
-				particles = [];
-				interval = 0.01;
-			}*/
-
 			var ang = this._calcADSR(t, conf.timing, conf.angle) * (1-conf.angle.rnd*Math.random());
 			var vel = this._calcADSR(t, conf.timing, conf.velocity) * (1-conf.velocity.rnd*Math.random());
-			var den = this._calcADSR(t, conf.timing, conf.density) * (1-conf.density.rnd*Math.random());
+			//var den = this._calcADSR(t, conf.timing, conf.density) * (1-conf.density.rnd*Math.random());
+			var den = Math.random();
 
 			var vx = vel * Math.cos(ang);
 			var vy = vel * Math.sin(ang);
 
-			t += interval;
-			particles.push({
-				wait: t,
-				x: conf.x,
-				y: conf.y,
-				vx: vx,
-				vy: vy,
-				density: den,
-				dist: 0
-			});
+			if (Math.random() < Math.min(1, Math.abs(vel-lstVel)/200) && particles.length > 0) {
+				this._groups.add({
+					life: opt.life,
+					particles: particles
+				});
+				particles = [];
+				interval = 0.01;
 
+				t += interval;
+				particles.push({
+					wait: t,
+					x: conf.x,
+					y: conf.y,
+					vx: vx,
+					vy: vy,
+					density: den,
+					dist: 0
+				});
+
+				this._groups.add({
+					life: opt.life,
+					particles: particles
+				});
+				particles = [];
+			}
+			else {
+				t += interval;
+				particles.push({
+					wait: t,
+					x: conf.x,
+					y: conf.y,
+					vx: vx,
+					vy: vy,
+					density: den,
+					dist: 0
+				});
+
+			}
+
+
+
+			lstVel = vel;
 		}
 
 		if (particles.length > 0) {
